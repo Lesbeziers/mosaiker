@@ -1,0 +1,416 @@
+/* ============================================================
+   LAYOUT.CSS — Estructura principal de la app
+   ============================================================ */
+
+/* ── APP ──────────────────────────────────────────────────── */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+}
+
+/* ── CABECERA ─────────────────────────────────────────────── */
+#header {
+  flex-shrink: 0;
+  height: var(--header-height);
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#header img {
+  height: 50px;
+  pointer-events: none;
+}
+
+/* ── TOPBAR ───────────────────────────────────────────────── */
+#topbar {
+  flex-shrink: 0;
+  height: var(--topbar-height);
+  background: var(--col-bg);
+  border-bottom: 1px solid var(--col-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+}
+
+#topbar-left,
+#topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── MAIN ─────────────────────────────────────────────────── */
+#main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+
+/* ── SIDEBAR ──────────────────────────────────────────────── */
+#sidebar {
+  flex-shrink: 0;
+  width: var(--sidebar-width);
+  background: var(--col-surface);
+  border-right: 1px solid var(--col-border);
+  overflow: hidden;
+  transition: width 0.25s ease, border-color 0.25s ease;
+}
+
+#sidebar.collapsed {
+  width: 0;
+  border-color: transparent;
+}
+
+/* ── PESTAÑA COLAPSAR ─────────────────────────────────────── */
+#btn-collapse {
+  position: absolute;
+  top: 50%;
+  left: var(--sidebar-width);
+  transform: translateY(-50%);
+  z-index: 20;
+  width: 18px;
+  height: 48px;
+  background: var(--col-surface);
+  border: 1px solid var(--col-border);
+  border-left: none;
+  border-radius: 0 4px 4px 0;
+  color: #777;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: left 0.25s ease, color 0.15s, background 0.15s;
+}
+
+#btn-collapse:hover {
+  color: #fff;
+  background: #282828;
+}
+
+/* ── COLUMNA DERECHA ──────────────────────────────────────── */
+#right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── CANVAS AREA ──────────────────────────────────────────── */
+#canvas-area {
+  flex: 1;
+  min-height: 0;
+  background: var(--col-bg);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── LIENZO ───────────────────────────────────────────────── */
+#lienzo {
+  position: absolute;
+  background: transparent;
+  overflow: hidden;
+  display: none;
+  box-shadow: 0 0 0 1px #444;
+}
+
+/* ── CANVAS WEBGL (mosaic-3d) DENTRO DEL LIENZO ───────────── */
+.mosaic-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ── OVERLAYS DEL LIENZO ──────────────────────────────────── */
+/* Stacking explícito:
+   - canvas WebGL: z-index 0 (default por DOM order)
+   - viñeta: z-index 1 (encima del mosaico, parte del diseño)
+   - ZSE/MOK: z-index 2 (encima de todo, son guías de validación) */
+.lienzo-vignette {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+
+.lienzo-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+}
+
+#lienzo-label {
+  position: absolute;
+  bottom: -20px;
+  left: 0;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 400;
+  color: #555;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── VER TODAS ────────────────────────────────────────────── */
+body.view-all #sidebar       { width: 0; border-color: transparent; }
+body.view-all #btn-collapse  { display: none; }
+body.view-all #canvas-area   { display: none; }
+
+#ver-todas-area {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px 32px;
+  background: var(--col-bg);
+  position: relative;
+}
+
+body.view-all #ver-todas-area {
+  display: block;
+}
+
+#ver-todas-area::-webkit-scrollbar { width: 4px; }
+#ver-todas-area::-webkit-scrollbar-track { background: transparent; }
+#ver-todas-area::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 2px; }
+
+.vt-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font);
+  font-size: 24px;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--col-yellow);
+  pointer-events: none;
+  text-align: center;
+  padding: 0 32px;
+}
+
+/* ── VER TODAS — grid de creatividades OK ─────────────────── */
+.vt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  padding: 8px 0 40px;
+}
+
+.vt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.vt-card:hover {
+  transform: translateY(-2px);
+}
+
+.vt-thumb {
+  display: block;
+  width: 100%;
+  background: #1a1a1a;
+  border: 1px solid var(--col-border);
+  border-radius: 2px;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.vt-card:hover .vt-thumb {
+  border-color: var(--col-yellow);
+}
+
+.vt-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vt-card-name {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--col-yellow);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── MODAL (guardar proyecto, confirmaciones, etc.) ───────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  background: var(--col-surface);
+  border: 1px solid var(--col-border);
+  border-radius: 4px;
+  width: 380px;
+  max-width: 90vw;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+}
+
+.modal-header {
+  padding: 14px 16px;
+  background: #111;
+  border-bottom: 1px solid var(--col-border);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--col-yellow);
+}
+
+.modal-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-label {
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--col-text-muted);
+}
+
+.modal-input {
+  height: 30px;
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 2px;
+  color: var(--col-text);
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 0 10px;
+  outline: none;
+  margin-bottom: 8px;
+  transition: border-color 0.15s;
+}
+
+.modal-input:focus {
+  border-color: var(--col-yellow);
+}
+
+.modal-desc {
+  font-family: var(--font);
+  font-size: 11px;
+  color: var(--col-text-muted);
+  margin: 4px 0;
+  line-height: 1.5;
+}
+
+.modal-option {
+  padding: 12px 14px;
+  background: #1e1e1e;
+  border: 1px solid var(--col-border);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.modal-option:hover {
+  background: #252525;
+  border-color: #444;
+}
+
+.modal-option-title {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--col-text);
+}
+
+.modal-option-subtitle {
+  font-family: var(--font);
+  font-size: 10px;
+  color: #555;
+  margin-top: 3px;
+}
+
+.modal-cancel {
+  margin-top: 4px;
+  height: 26px;
+  padding: 0 16px;
+  border-radius: 2px;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid #444;
+  color: var(--col-text-muted);
+  transition: color 0.15s, border-color 0.15s;
+  align-self: flex-end;
+}
+
+.modal-cancel:hover {
+  color: var(--col-text);
+  border-color: #666;
+}
+
+/* ── TOOLTIP ──────────────────────────────────────────────── */
+#custom-tooltip {
+  position: fixed;
+  z-index: 9999;
+  padding: 4px 8px;
+  background: #000;
+  color: #fff;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+#custom-tooltip.visible {
+  opacity: 1;
+}

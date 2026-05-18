@@ -1,0 +1,26 @@
+# ── macOS ───────────────────────────────────────────────────
+# Metadata "resource fork" que crea macOS en volúmenes no-HFS+
+# (típico en discos externos, USB, redes). No aporta nada al repo.
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+Icon?
+
+# ── Editor / IDE ────────────────────────────────────────────
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Logs / temporales ───────────────────────────────────────
+*.log
+npm-debug.log*
+
+# ── OS (Windows/Linux por si acaso) ─────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mosaiker M+</title>
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/layout.css" />
+  <link rel="stylesheet" href="assets/css/ui.css" />
+  <link rel="stylesheet" href="assets/css/panel.css" />
+  <link rel="stylesheet" href="assets/css/bottombar.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <header id="header">
+    <img src="assets/img/cabecera_mosaiker.svg" alt="Mosaiker M+" />
+  </header>
+
+  <div id="topbar">
+    <div id="topbar-left">
+      <button class="btn-mode active" id="btn-editor">Editor</button>
+      <button class="btn-mode"        id="btn-ver-todas">Ver todas</button>
+    </div>
+    <div id="topbar-right">
+      <button class="btn-action" id="btn-abrir">Abrir proyecto</button>
+      <button class="btn-action" id="btn-guardar">Guardar proyecto</button>
+      <button class="btn-action" id="btn-exportar" disabled>Exportar mosaicos</button>
+    </div>
+  </div>
+
+  <div id="main">
+
+    <aside id="sidebar">
+      <div id="panel-inner">
+
+        <!-- ZONA DE DROP DE IMÁGENES -->
+        <div id="drop-zone" data-tooltip="Arrastra imágenes o haz clic">
+          <input type="file" id="file-input" accept="image/*" multiple style="display:none" />
+          <div class="drop-zone-text">
+            Arrastra las imágenes<br>o haz clic para seleccionar
+          </div>
+        </div>
+
+        <!-- TOGGLE: MOSTRAR PREFIJOS -->
+        <label class="panel-check">
+          <input type="checkbox" id="toggle-show-prefixes" />
+          <span class="check-box"></span>
+          <span class="check-label">Mostrar prefijos</span>
+        </label>
+
+        <!-- FORMATOS -->
+        <section class="panel-section">
+          <div class="panel-section-title">Formatos</div>
+          <div id="section-formatos-body">
+            <div class="custom-select" id="format-dropdown">
+              <div class="custom-select-trigger">
+                <span class="custom-select-value" id="format-value">Selecciona formato</span>
+                <span class="custom-select-arrow">▼</span>
+              </div>
+              <div class="custom-select-options" id="format-options"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MOSAICO -->
+        <section class="panel-section">
+          <div class="panel-section-title">Mosaico</div>
+          <div id="section-mosaico-body">
+            <div class="custom-select" id="skeleton-dropdown">
+              <div class="custom-select-trigger">
+                <span class="custom-select-value" id="skeleton-value">Selecciona mosaico</span>
+                <span class="custom-select-arrow">▼</span>
+              </div>
+              <div class="custom-select-options" id="skeleton-options"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TRANSFORMAR -->
+        <section class="panel-section">
+          <div class="panel-section-title">Transformar</div>
+          <div id="section-transformar-body">
+            <div class="transform-block">
+              <div class="transform-block-title">Mosaico</div>
+
+              <div class="transform-row">
+                <span class="transform-label">Rotación X</span>
+                <input type="range" id="tr-rotX" min="0" max="80" value="35" step="1" />
+                <span class="transform-value" id="tr-rotX-val">35</span>
+              </div>
+              <div class="transform-row">
+                <span class="transform-label">Rotación Y</span>
+                <input type="range" id="tr-rotY" min="-45" max="45" value="0" step="1" />
+                <span class="transform-value" id="tr-rotY-val">0</span>
+              </div>
+
+              <div class="transform-separator"></div>
+
+              <div class="transform-row">
+                <span class="transform-label">Cámara X</span>
+                <input type="range" id="tr-camX" min="-5" max="5" value="0" step="0.1" />
+                <span class="transform-value" id="tr-camX-val">0</span>
+              </div>
+              <div class="transform-row">
+                <span class="transform-label">Cámara Y</span>
+                <input type="range" id="tr-camY" min="-4" max="4" value="0" step="0.1" />
+                <span class="transform-value" id="tr-camY-val">0</span>
+              </div>
+              <div class="transform-row">
+                <span class="transform-label">Zoom</span>
+                <input type="range" id="tr-camZ" min="1" max="15" value="10" step="0.1" />
+                <span class="transform-value" id="tr-camZ-val">10</span>
+              </div>
+
+              <div class="transform-separator"></div>
+
+              <div class="transform-row">
+                <span class="transform-label">Separación</span>
+                <input type="range" id="tr-gap" min="0" max="30" value="8" step="1" />
+                <span class="transform-value" id="tr-gap-val">8</span>
+              </div>
+              <div class="transform-row">
+                <span class="transform-label">Esquinas</span>
+                <input type="range" id="tr-radius" min="0" max="80" value="12" step="1" />
+                <span class="transform-value" id="tr-radius-val">12</span>
+              </div>
+            </div>
+
+            <!-- OFFSET COLUMNAS — se renderiza dinámicamente según el esqueleto activo -->
+            <div id="col-offsets-block" class="transform-block" style="margin-top:10px; display:none;">
+              <div class="transform-block-title">Offset columnas</div>
+              <div id="col-offsets-row" class="col-offsets-row"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIGNETTE -->
+        <section class="panel-section" id="section-vignette">
+          <div class="panel-section-title">Vignette</div>
+          <div id="section-vignette-body">
+            <div class="custom-select" id="vignette-dropdown">
+              <div class="custom-select-trigger">
+                <span class="custom-select-value" id="vignette-value">Ninguna</span>
+                <span class="custom-select-arrow">▼</span>
+              </div>
+              <div class="custom-select-options" id="vignette-options"></div>
+            </div>
+
+            <div class="transform-row" id="vignette-opacity-row" style="margin-top:10px;">
+              <span class="transform-label">Transparencia</span>
+              <input type="range" id="vignette-opacity" min="0" max="100" value="100" step="1" />
+              <span class="transform-value" id="vignette-opacity-val">100</span>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </aside>
+
+    <button id="btn-collapse">‹</button>
+
+    <div id="right">
+      <div id="canvas-area">
+        <button id="btn-canvas-ok">OK</button>
+        <div id="lienzo">
+          <div id="lienzo-label"></div>
+        </div>
+      </div>
+      <div id="ver-todas-area"></div>
+
+      <div id="bottombar"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<div id="custom-tooltip"></div>
+
+<script src="assets/js/jszip.min.js"></script>
+<script src="assets/js/state.js"></script>
+<script src="assets/js/canvas.js"></script>
+<script src="assets/js/overlays.js"></script>
+<script src="assets/js/vignettes.js"></script>
+<script src="assets/js/formats.js"></script>
+<script src="assets/js/images.js"></script>
+<script src="assets/js/mosaic-3d.js"></script>
+<script src="assets/js/skeletons.js"></script>
+<script src="assets/js/project.js"></script>
+<script src="assets/js/export.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/app.js"></script>
+
+</body>
+</html>

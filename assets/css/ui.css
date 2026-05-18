@@ -1,0 +1,107 @@
+/* ============================================================
+   UI.CSS — Botones y controles generales
+   ============================================================ */
+
+/* ── BOTONES MODO (EDITOR / VER TODAS) ───────────────────── */
+.btn-mode {
+  height: 22px;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  color: var(--col-text-muted);
+  font-family: var(--font);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.btn-mode:hover {
+  color: var(--col-text);
+  border-color: #666;
+}
+
+.btn-mode.active {
+  color: var(--col-text);
+  border-color: #888;
+  background: #2a2a2a;
+}
+
+/* ── BOTONES ACCIÓN (ABRIR / GUARDAR / EXPORTAR) ─────────── */
+.btn-action {
+  height: 22px;
+  padding: 0 10px;
+  background: #2a2a2a;
+  border: none;
+  color: #bbb;
+  font-family: var(--font);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.btn-action:hover {
+  color: var(--col-text);
+  border-color: #666;
+  background: #333;
+}
+
+.btn-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #2a2a2a;
+}
+
+.btn-action:disabled:hover {
+  color: #bbb;
+  background: #2a2a2a;
+}
+
+/* ── OK FLOTANTE (esquina superior derecha del canvas) ───── */
+#btn-canvas-ok {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 30;
+  height: 26px;
+  padding: 0 18px;
+  background: #2a2a2a;
+  border: none;
+  color: #bbb;
+  font-family: var(--font);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: color 0.15s, background 0.15s;
+}
+
+#btn-canvas-ok:hover {
+  color: var(--col-text);
+  background: #333;
+}
+
+#btn-canvas-ok.done {
+  background: var(--col-green);
+  color: #000;
+}
+
+#btn-canvas-ok.done:hover {
+  background: #4dca7f;
+}
+
+#btn-canvas-ok:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #2a2a2a;
+  color: #777;
+}

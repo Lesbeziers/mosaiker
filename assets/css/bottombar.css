@@ -1,0 +1,73 @@
+/* ============================================================
+   BOTTOMBAR.CSS — Barra inferior con switches de overlays
+   Patrón heredado de Validator (.switch / .track / .knob)
+   ============================================================ */
+
+#bottombar {
+  flex-shrink: 0;
+  height: 44px;
+  background: #141414;
+  border-top: 1px solid var(--col-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 0 16px;
+}
+
+/* Cuando estamos en modo VER TODAS, ocultamos la bottom-bar */
+body.view-all #bottombar {
+  display: none;
+}
+
+/* ── SWITCH ───────────────────────────────────────────────── */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--col-text);
+}
+
+.switch input {
+  display: none;
+}
+
+.switch .track {
+  width: 36px;
+  height: 18px;
+  border-radius: 999px;
+  background: #4a4a4a;
+  position: relative;
+  transition: background 0.18s ease;
+  flex-shrink: 0;
+}
+
+.switch .knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.18s ease;
+}
+
+.switch input:checked + .track {
+  background: var(--col-yellow);
+}
+
+.switch input:checked + .track .knob {
+  left: 20px;
+}
+
+.switch:hover .track {
+  filter: brightness(1.1);
+}

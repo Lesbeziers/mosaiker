@@ -1,0 +1,384 @@
+/* ============================================================
+   PANEL.CSS — Zona de funcionalidades (panel izquierdo)
+   ============================================================ */
+
+/* ── CONTENEDOR INTERIOR DEL PANEL ───────────────────────── */
+#panel-inner {
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+}
+
+#panel-inner::-webkit-scrollbar { width: 4px; }
+#panel-inner::-webkit-scrollbar-track { background: transparent; }
+#panel-inner::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 2px;
+}
+
+/* ── ZONA DE DROP DE IMÁGENES ─────────────────────────────── */
+#drop-zone {
+  border: 1.5px dashed #3a3a3a;
+  border-radius: 4px;
+  padding: 26px 12px;
+  text-align: center;
+  cursor: pointer;
+  background: transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+#drop-zone:hover,
+#drop-zone.dragover {
+  border-color: var(--col-yellow);
+  background: rgba(240, 165, 0, 0.04);
+}
+
+.drop-zone-text {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--col-yellow);
+  line-height: 1.6;
+  pointer-events: none;
+}
+
+/* ── CHECKBOX DEL PANEL (mostrar prefijos, etc.) ──────────── */
+.panel-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  margin-top: -10px; /* sube ligeramente para acercarse al drop-zone */
+}
+
+.panel-check input {
+  display: none;
+}
+
+.panel-check .check-box {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid #555;
+  border-radius: 2px;
+  background: transparent;
+  flex-shrink: 0;
+  position: relative;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.panel-check input:checked + .check-box {
+  background: var(--col-yellow);
+  border-color: var(--col-yellow);
+}
+
+.panel-check input:checked + .check-box::after {
+  content: '';
+  position: absolute;
+  top: 0px;
+  left: 3px;
+  width: 4px;
+  height: 8px;
+  border-right: 2px solid #000;
+  border-bottom: 2px solid #000;
+  transform: rotate(45deg);
+}
+
+.panel-check .check-label {
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--col-text-muted);
+  transition: color 0.15s;
+}
+
+.panel-check:hover .check-label {
+  color: var(--col-text);
+}
+
+/* ── SECCIONES DEL PANEL ──────────────────────────────────── */
+.panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panel-section-title {
+  font-size: 20px;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--col-yellow);
+}
+
+/* ── CUSTOM DROPDOWN ──────────────────────────────────────── */
+.custom-select {
+  position: relative;
+  width: 100%;
+  user-select: none;
+}
+
+.custom-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 28px;
+  padding: 0 10px;
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.custom-select-trigger:hover {
+  border-color: #666;
+}
+
+.custom-select.open .custom-select-trigger {
+  border-color: #666;
+  border-bottom-color: transparent;
+  border-radius: 2px 2px 0 0;
+}
+
+.custom-select-value {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--col-yellow);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.custom-select-arrow {
+  font-size: 8px;
+  color: var(--col-text-muted);
+  flex-shrink: 0;
+  margin-left: 6px;
+  transition: transform 0.2s;
+}
+
+.custom-select.open .custom-select-arrow {
+  transform: rotate(180deg);
+}
+
+.custom-select-options {
+  display: none;
+  position: absolute;
+  top: 28px;
+  left: 0;
+  right: 0;
+  background: #2a2a2a;
+  border: 1px solid #666;
+  border-top: none;
+  border-radius: 0 0 2px 2px;
+  z-index: 100;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.custom-select.open .custom-select-options {
+  display: block;
+}
+
+.custom-select-option {
+  padding: 7px 10px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--col-text-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.custom-select-option:hover {
+  background: #333;
+  color: var(--col-text);
+}
+
+.custom-select-option.selected {
+  color: var(--col-yellow);
+}
+
+.custom-select-options::-webkit-scrollbar { width: 4px; }
+.custom-select-options::-webkit-scrollbar-track { background: transparent; }
+.custom-select-options::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 2px; }
+
+/* ── BLOQUE TRANSFORMAR ──────────────────────────────────── */
+.transform-block {
+  background: #1a1a1a;
+  border: 1px solid var(--col-border);
+  border-radius: 3px;
+  padding: 8px 10px 10px;
+}
+
+.transform-block-title {
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--col-yellow);
+  text-align: center;
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.transform-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.transform-label {
+  flex-shrink: 0;
+  width: 78px;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--col-text-muted);
+}
+
+.transform-value {
+  flex-shrink: 0;
+  width: 34px;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--col-yellow);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.transform-separator {
+  height: 1px;
+  background: #2a2a2a;
+  margin: 6px 0;
+}
+
+/* Slider customizado */
+.transform-row input[type=range] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  background: #2a2a2a;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.transform-row input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--col-yellow);
+  cursor: pointer;
+  border: none;
+  transition: transform 0.1s;
+}
+
+.transform-row input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.transform-row input[type=range]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--col-yellow);
+  cursor: pointer;
+  border: none;
+}
+
+/* ── OFFSET COLUMNAS (sliders verticales por columna) ─────── */
+.col-offsets-row {
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 6px 0 2px;
+}
+
+.col-offset {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 22px;
+}
+
+.col-offset-slider-wrap {
+  width: 22px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.col-offset-slider {
+  width: 80px;       /* tras rotar -90deg se vuelve la altura visual */
+  height: 3px;       /* el track es la propia altura del input — igual que TRANSFORMAR */
+  transform: rotate(-90deg);
+  -webkit-appearance: none;
+  appearance: none;
+  background: #2a2a2a;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.col-offset-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--col-yellow);
+  cursor: pointer;
+  border: none;
+  transition: transform 0.1s;
+}
+
+.col-offset-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.col-offset-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--col-yellow);
+  cursor: pointer;
+  border: none;
+}
+
+.col-offset-label {
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--col-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

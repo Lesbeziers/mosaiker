@@ -1,0 +1,158 @@
+/* ============================================================
+   BASE.CSS — Reset, variables globales, tipografía
+   ============================================================ */
+
+/* ── FUENTES ──────────────────────────────────────────────── */
+@font-face {
+  font-family: 'Apercu Movistar';
+  src: url('../fonts/apercu_light_movistar-web.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Apercu Movistar';
+  src: url('../fonts/apercu_light_italic_movistar-web.woff') format('woff');
+  font-weight: 300;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'Apercu Movistar';
+  src: url('../fonts/apercu_regular_movistar-web.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Apercu Movistar';
+  src: url('../fonts/apercu_regular_italic_movistar-web.woff') format('woff');
+  font-weight: 400;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'Apercu Movistar';
+  src: url('../fonts/apercu_bold_movistar-web.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Apercu Movistar';
+  src: url('../fonts/apercu_bold_italic_movistar-web.woff') format('woff');
+  font-weight: 700;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'Apercu Movistar';
+  src: url('../fonts/apercu_black_movistar-web.woff') format('woff');
+  font-weight: 900;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Apercu Movistar';
+  src: url('../fonts/apercu_black_italic_movistar-web.woff') format('woff');
+  font-weight: 900;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Movistar Sans';
+  src: url('../fonts/MovistarSans-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Movistar Sans';
+  src: url('../fonts/MovistarSans-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Movistar Sans';
+  src: url('../fonts/MovistarSans-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Movistar Sans';
+  src: url('../fonts/MovistarSans-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Movistar Sans';
+  src: url('../fonts/MovistarSans-Extrabold.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Movistar';
+  src: url('../fonts/Movistar-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Movistar';
+  src: url('../fonts/Movistar-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+/* ── VARIABLES ────────────────────────────────────────────── */
+:root {
+  /* Colores — heredados de Adaptator/Validator */
+  --col-bg:         #0e0e0e;
+  --col-surface:    #161616;
+  --col-border:     #2e2e2e;
+  --col-text:       #cccccc;
+  --col-text-muted: #777777;
+  --col-yellow:     #f0a500;
+  --col-green:      #3dba6f;
+
+  /* Tipografía */
+  --font:           'Apercu Movistar', sans-serif;
+  --font-size-xs:   10px;
+
+  /* Layout */
+  --header-height:  70px;
+  --topbar-height:  36px;
+  --sidebar-width:  330px;
+}
+
+/* ── RESET ────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--col-text);
+  background: var(--col-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font-family: var(--font);
+}
+
+img {
+  display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
