@@ -177,15 +177,19 @@ const Export = (() => {
 
     // Pre-carga las imágenes originales a resolución completa una sola vez,
     // las reutilizamos en todos los formatos del ZIP.
+    // Usamos un <img> intermedio (mismo patrón que el editor) porque
+    // createImageBitmap(file) directamente falla en algunos navegadores con
+    // ciertos WEBPs / perfiles de color, mientras que decodificar primero
+    // con <img> es completamente robusto.
     const fullBitmaps = {};
     const numbers = (typeof Images !== 'undefined') ? Images.getLoadedNumbers() : [];
     for (const n of numbers) {
       const file = Images.getOriginalFile(n);
       if (!file) continue;
       try {
-        fullBitmaps[n] = await createImageBitmap(file, { imageOrientation: 'flipY' });
+        fullBitmaps[n] = await _decodeFullRes(file);
       } catch (err) {
-        console.warn(`[Mosaiker] No se pudo decodificar imagen ${n}:`, err);
+        console.warn(`[Mosaiker] No se pudo decodificar imagen ${n} (${file.name}):`, err);
       }
     }
 
@@ -468,6 +472,31 @@ const Export = (() => {
   function _findVignetteSrc(format, type) {
     const key = `${format.width}x${format.height}_${type}.png`;
     return `assets/img/vignette/${key}`;
+  }
+
+  // Decodifica un File a un ImageBitmap a resolución completa.
+  // Pasa por un <img> intermedio para garantizar compatibilidad con WEBP,
+  // AVIF y otros formatos que createImageBitmap(file) no siempre digiere bien.
+  function _decodeFullRes(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          const bitmap = await createImageBitmap(img, { imageOrientation: 'flipY' });
+          URL.revokeObjectURL(url);
+          resolve(bitmap);
+        } catch (err) {
+          URL.revokeObjectURL(url);
+          reject(err);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Error decodificando ' + file.name));
+      };
+      img.src = url;
+    });
   }
 
   function _loadImage(src) {
