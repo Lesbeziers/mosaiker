@@ -265,31 +265,30 @@ const Export = (() => {
     scene.add(pivot);
 
     // Crea texturas full-res a partir de los bitmaps pre-cargados.
-    // Las cachea por nº de prefijo dentro de este render.
+    // Cache por `n_ratio` para que los placeholders muestren el ratio
+    // correcto (horizontal vs vertical) si el hueco no tiene imagen.
     const textureCache = {};
     const anisotropy   = renderer.capabilities.getMaxAnisotropy();
-    const getTexture = (n) => {
-      if (textureCache[n]) return textureCache[n];
-      const bitmap = fullBitmaps[n];
+    const getTexture = (slot) => {
+      const key = `${slot.n}_${slot.ratio}`;
+      if (textureCache[key]) return textureCache[key];
+      const bitmap = fullBitmaps[slot.n];
       let tex;
       if (bitmap) {
         tex = new THREE.Texture(bitmap);
         tex.colorSpace = THREE.SRGBColorSpace;
       } else {
-        // No hay imagen cargada para este hueco — placeholder simple oscuro
-        const c = document.createElement('canvas');
-        c.width = 64; c.height = 64;
-        const cx = c.getContext('2d');
-        cx.fillStyle = '#1a1a1a';
-        cx.fillRect(0, 0, 64, 64);
-        tex = new THREE.CanvasTexture(c);
+        // Sin imagen para este prefijo: mismo placeholder etiquetado que
+        // el editor (caja oscura + "img_NN" + ratio) para que el cliente
+        // identifique al instante qué prefijos faltan en el JPG exportado.
+        tex = _makePlaceholderTexture(THREE, slot.ratio === 'H', slot.n);
       }
       tex.minFilter       = THREE.LinearMipMapLinearFilter;
       tex.magFilter       = THREE.LinearFilter;
       tex.generateMipmaps = true;
       tex.anisotropy      = anisotropy;
       tex.needsUpdate     = true;
-      textureCache[n] = tex;
+      textureCache[key] = tex;
       return tex;
     };
 
@@ -427,7 +426,7 @@ const Export = (() => {
   function _addMesh(THREE, pivot, slot, x, centerY, w, h, p, getTexture) {
     const r   = ((p.radius ?? 12) / 1000) * CELL_H;
     const geo = _makeRoundedRect(THREE, w, h, r);
-    const tex = getTexture(slot.n);
+    const tex = getTexture(slot);
     const mat = new THREE.MeshBasicMaterial({
       map:         tex,
       side:        THREE.FrontSide,
@@ -462,6 +461,32 @@ const Export = (() => {
     }
     geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     return geo;
+  }
+
+  // Placeholder visible cuando no hay imagen para un hueco.
+  // Mismo aspecto que el del editor: caja oscura, label "img_NN" en
+  // amarillo y ratio debajo en gris. Así el cliente puede identificar
+  // a simple vista qué prefijos faltan en el JPG exportado.
+  function _makePlaceholderTexture(THREE, isHoriz, n) {
+    const pw = isHoriz ? 640 : 320;
+    const ph = 480;
+    const c  = document.createElement('canvas');
+    c.width = pw; c.height = ph;
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#1a1a1a';
+    cx.fillRect(0, 0, pw, ph);
+    cx.strokeStyle = '#333';
+    cx.lineWidth = 2;
+    cx.strokeRect(2, 2, pw - 4, ph - 4);
+    cx.fillStyle = '#f0a500';
+    cx.font = `bold ${Math.round(ph * 0.13)}px 'Apercu Movistar', sans-serif`;
+    cx.textAlign = 'center';
+    cx.textBaseline = 'middle';
+    cx.fillText(`img_${String(n).padStart(2, '0')}`, pw / 2, ph / 2 - 22);
+    cx.fillStyle = '#666';
+    cx.font = `${Math.round(ph * 0.085)}px 'Apercu Movistar', sans-serif`;
+    cx.fillText(isHoriz ? '16:9' : '9:16', pw / 2, ph / 2 + 26);
+    return new THREE.CanvasTexture(c);
   }
 
   // ── HELPERS ───────────────────────────────────────────────
