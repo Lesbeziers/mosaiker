@@ -79,10 +79,11 @@ const Formats = (() => {
     _updateTrigger(fmt);
     _markSelectedOption(id);
     Canvas.setFormat(fmt);
-    if (typeof Overlays   !== 'undefined') Overlays.update();
-    if (typeof Vignettes  !== 'undefined') Vignettes.update();
-    if (typeof Mosaic3D   !== 'undefined') Mosaic3D.setFormat(fmt);
-    if (typeof UI         !== 'undefined' && UI.updateOkButton) UI.updateOkButton();
+    if (typeof Overlays      !== 'undefined') Overlays.update();
+    if (typeof Vignettes     !== 'undefined') Vignettes.update();
+    if (typeof MosaicOpacity !== 'undefined') MosaicOpacity.update();
+    if (typeof Mosaic3D      !== 'undefined') Mosaic3D.setFormat(fmt);
+    if (typeof UI            !== 'undefined' && UI.updateOkButton) UI.updateOkButton();
   }
 
   // ── PRIVADAS ──────────────────────────────────────────────

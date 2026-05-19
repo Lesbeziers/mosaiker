@@ -11,8 +11,78 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 30px;
+  gap: 40px;
   padding: 0 16px;
+}
+
+#bb-opacity,
+#bb-overlays {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+/* ── SLIDER DE OPACIDAD DEL MOSAICO ───────────────────────── */
+.bb-opacity-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bb-opacity-label {
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--col-text);
+  white-space: nowrap;
+}
+
+.bb-opacity-slider {
+  width: 130px;
+  height: 3px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #2a2a2a;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.bb-opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--col-yellow);
+  cursor: pointer;
+  border: none;
+  transition: transform 0.1s;
+}
+
+.bb-opacity-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.bb-opacity-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--col-yellow);
+  cursor: pointer;
+  border: none;
+}
+
+.bb-opacity-val {
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--col-yellow);
+  min-width: 28px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Cuando estamos en modo VER TODAS, ocultamos la bottom-bar */

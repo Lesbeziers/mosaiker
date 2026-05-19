@@ -41,6 +41,10 @@ const State = {
   // opacity = 0..1.
   vignettes: {},
 
+  // Opacidad del mosaico por formato (0..1). Default = 1 (totalmente opaco).
+  // Sólo afecta al mosaico 3D, no a la viñeta ni a los overlays ZSE/MOK.
+  mosaicOpacity: {},
+
   // Formatos marcados OK por el usuario (entrarán a VER TODAS y al export).
   // clave = formatId, valor = true. Se elimina la entrada al desmarcar.
   formatsOk: {},

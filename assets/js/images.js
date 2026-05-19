@@ -18,10 +18,15 @@ const Images = (() => {
   // Map: prefijo (1-based) → { display: HTMLCanvasElement, file: File, originalSize }
   const cache = {};
 
+  // Promesas de decodificación en curso. Permite a otros módulos (export,
+  // guardado…) esperar a que el cache esté "consolidado" antes de leer,
+  // evitando race conditions tipo "el usuario arrastra y exporta rápido".
+  const pending = new Set();
+
   // Carga UN archivo. Devuelve Promise<number> con el prefijo asignado,
   // o rechaza si el nombre no tiene prefijo numérico.
   function loadFile(file) {
-    return new Promise((resolve, reject) => {
+    const p = new Promise((resolve, reject) => {
       const match = file.name.match(/^(\d+)/);
       if (!match) {
         console.warn(`[Mosaiker] Archivo sin prefijo numérico, ignorado: ${file.name}`);
@@ -82,6 +87,19 @@ const Images = (() => {
       };
       img.src = url;
     });
+    pending.add(p);
+    p.finally(() => pending.delete(p));
+    return p;
+  }
+
+  // Resuelve cuando no hay ningún loadFile en curso.
+  // Se usa en el exportador para evitar disparar el render con cache "a medias".
+  function whenIdle() {
+    if (pending.size === 0) return Promise.resolve();
+    return Promise.allSettled([...pending]).then(() => {
+      // Si en el ínterin se añadieron más loads, esperamos también esos
+      if (pending.size > 0) return whenIdle();
+    });
   }
 
   // Carga múltiples archivos. Tras terminar, notifica a Mosaic3D para
@@ -124,5 +142,5 @@ const Images = (() => {
     if (typeof Mosaic3D !== 'undefined') Mosaic3D.refreshTextures();
   }
 
-  return { loadFile, loadFiles, getImage, getOriginalFile, has, getLoadedNumbers, clear };
+  return { loadFile, loadFiles, getImage, getOriginalFile, has, getLoadedNumbers, clear, whenIdle };
 })();

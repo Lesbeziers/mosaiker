@@ -297,9 +297,14 @@ const UI = (() => {
     ctx.fillStyle = '#0e0e0e';
     ctx.fillRect(0, 0, w, h);
 
-    // 1) Mosaico WebGL
+    // 1) Mosaico WebGL — respeta la opacidad del mosaico del formato
     const webGL = lienzo.querySelector('.mosaic-canvas');
-    if (webGL) ctx.drawImage(webGL, 0, 0, w, h);
+    if (webGL) {
+      const mosOp = (typeof MosaicOpacity !== 'undefined') ? MosaicOpacity.get() : 1;
+      ctx.globalAlpha = mosOp;
+      ctx.drawImage(webGL, 0, 0, w, h);
+      ctx.globalAlpha = 1;
+    }
 
     // 2) Viñeta (si está activa) — esperamos a que esté decodificada
     const vig = lienzo.querySelector('.lienzo-vignette');

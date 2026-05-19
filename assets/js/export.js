@@ -309,7 +309,12 @@ const Export = (() => {
     ctx.fillStyle = '#0e0e0e';
     ctx.fillRect(0, 0, W, H);
 
+    // Composita el mosaico respetando su opacidad por formato
+    const mosOp = (State.mosaicOpacity && typeof State.mosaicOpacity[format.id] === 'number')
+      ? State.mosaicOpacity[format.id] : 1;
+    ctx.globalAlpha = mosOp;
     ctx.drawImage(renderer.domElement, 0, 0);
+    ctx.globalAlpha = 1;
 
     // Viñeta (si el formato la tiene activa)
     const vig = State.vignettes?.[format.id];

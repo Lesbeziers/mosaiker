@@ -203,6 +203,7 @@ const Project = (() => {
     State.activeSkeletonId  = data.activeSkeletonId  || 'clasico';
     State.overlays          = { ...(data.overlays         || {}) };
     State.vignettes         = JSON.parse(JSON.stringify(data.vignettes || {}));
+    State.mosaicOpacity     = { ...(data.mosaicOpacity    || {}) };
     State.formatsOk         = { ...(data.formatsOk        || {}) };
     State.formatSnapshots   = { ...(data.formatSnapshots  || {}) };
     State.showImagePrefixes = !!data.showImagePrefixes;
@@ -358,6 +359,7 @@ const Project = (() => {
       transform:       JSON.parse(JSON.stringify(State.transform)),
       overlays:        { ...State.overlays },
       vignettes:       JSON.parse(JSON.stringify(State.vignettes)),
+      mosaicOpacity:   { ...State.mosaicOpacity },
       formatsOk:       { ...State.formatsOk },
       formatSnapshots: { ...State.formatSnapshots },
       showImagePrefixes: !!State.showImagePrefixes,

@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   Formats.init();
   Overlays.init();
   Vignettes.init();
+  MosaicOpacity.init();
   Project.init();
   Export.init();
   UI.init();

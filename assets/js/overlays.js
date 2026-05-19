@@ -30,18 +30,18 @@ const Overlays = (() => {
   // ── PRIVADAS ──────────────────────────────────────────────
 
   function _renderSwitches(fmt) {
-    const bar = document.getElementById('bottombar');
-    if (!bar) return;
-    bar.innerHTML = '';
+    const bar       = document.getElementById('bottombar');
+    const container = document.getElementById('bb-overlays');
+    if (!bar || !container) return;
+    container.innerHTML = '';
+
+    // La bottom-bar está visible siempre que haya un formato activo
+    // (porque MosaicOpacity siempre necesita su slider). Sólo se oculta
+    // si no hay formato seleccionado.
+    bar.style.display = fmt ? 'flex' : 'none';
 
     const list = fmt?.overlays || [];
-    if (list.length === 0) {
-      bar.style.display = 'none';
-      return;
-    }
-
-    bar.style.display = 'flex';
-    list.forEach(ov => bar.appendChild(_createSwitch(ov, fmt)));
+    list.forEach(ov => container.appendChild(_createSwitch(ov, fmt)));
   }
 
   function _createSwitch(overlay, fmt) {
