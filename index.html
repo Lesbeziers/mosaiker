@@ -47,7 +47,7 @@
         <label class="panel-check">
           <input type="checkbox" id="toggle-show-prefixes" />
           <span class="check-box"></span>
-          <span class="check-label">Mostrar prefijos</span>
+          <span class="check-label">Mostrar índices</span>
         </label>
 
         <!-- FORMATOS -->
@@ -68,13 +68,9 @@
         <section class="panel-section">
           <div class="panel-section-title">Mosaico</div>
           <div id="section-mosaico-body">
-            <div class="custom-select" id="skeleton-dropdown">
-              <div class="custom-select-trigger">
-                <span class="custom-select-value" id="skeleton-value">Selecciona mosaico</span>
-                <span class="custom-select-arrow">▼</span>
-              </div>
-              <div class="custom-select-options" id="skeleton-options"></div>
-            </div>
+            <button type="button" class="custom-select-trigger mosaic-trigger" id="skeleton-trigger">
+              <span class="custom-select-value" id="skeleton-value">Selecciona un mosaico</span>
+            </button>
           </div>
         </section>
 
@@ -130,7 +126,7 @@
 
             <!-- OFFSET COLUMNAS — se renderiza dinámicamente según el esqueleto activo -->
             <div id="col-offsets-block" class="transform-block" style="margin-top:10px; display:none;">
-              <div class="transform-block-title">Offset columnas</div>
+              <div id="col-offsets-title" class="transform-block-title">Offset columnas</div>
               <div id="col-offsets-row" class="col-offsets-row"></div>
             </div>
           </div>
@@ -171,7 +167,9 @@
       <div id="ver-todas-area"></div>
 
       <div id="bottombar">
+        <div id="bb-background"></div>
         <div id="bb-opacity"></div>
+        <div id="bb-blur"></div>
         <div id="bb-overlays"></div>
       </div>
     </div>
@@ -188,6 +186,8 @@
 <script src="assets/js/overlays.js"></script>
 <script src="assets/js/vignettes.js"></script>
 <script src="assets/js/mosaic-opacity.js"></script>
+<script src="assets/js/mosaic-blur.js"></script>
+<script src="assets/js/background.js"></script>
 <script src="assets/js/formats.js"></script>
 <script src="assets/js/images.js"></script>
 <script src="assets/js/mosaic-3d.js"></script>
