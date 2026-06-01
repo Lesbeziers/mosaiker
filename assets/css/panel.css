@@ -143,6 +143,15 @@
   border-color: #666;
 }
 
+/* Trigger del selector de mosaico: es un <button>, normaliza estilos
+   nativos para que case 1:1 con los triggers de dropdown del panel. */
+.mosaic-trigger {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font);
+  text-align: left;
+}
+
 .custom-select.open .custom-select-trigger {
   border-color: #666;
   border-bottom-color: transparent;
@@ -381,4 +390,35 @@
   color: var(--col-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* ── OFFSET FILAS (sliders horizontales por fila) ─────────── */
+.col-offsets-row.rows-mode {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.col-offset.rows-mode {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.col-offset.rows-mode .col-offset-slider-wrap {
+  width: auto;
+  height: 16px;
+  flex: 1;
+}
+
+.col-offset-slider.rows-mode {
+  width: 100%;
+  transform: none;          /* horizontal: sin rotar */
+}
+
+.col-offset.rows-mode .col-offset-label {
+  width: 38px;
+  flex: none;
+  text-align: left;
 }

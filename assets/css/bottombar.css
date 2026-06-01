@@ -15,21 +15,47 @@
   padding: 0 16px;
 }
 
+#bb-background,
 #bb-opacity,
+#bb-blur,
 #bb-overlays {
   display: flex;
   align-items: center;
   gap: 30px;
 }
 
-/* ── SLIDER DE OPACIDAD DEL MOSAICO ───────────────────────── */
-.bb-opacity-wrap {
+/* ── FONDO (cuadradito de color) ──────────────────────────── */
+.bb-bg-wrap {
   display: inline-flex;
   align-items: center;
   gap: 10px;
 }
 
-.bb-opacity-label {
+.bb-bg-swatch {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--col-border);
+}
+
+.bb-bg-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.bb-bg-swatch::-webkit-color-swatch { border: none; border-radius: 4px; }
+.bb-bg-swatch::-moz-color-swatch { border: none; border-radius: 4px; }
+
+/* ── SLIDERS DEL MOSAICO (opacidad, desenfoque…) ──────────── */
+.bb-slider-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bb-slider-label {
   font-family: var(--font);
   font-size: 13px;
   font-weight: 700;
@@ -39,7 +65,7 @@
   white-space: nowrap;
 }
 
-.bb-opacity-slider {
+.bb-slider-control {
   width: 130px;
   height: 3px;
   -webkit-appearance: none;
@@ -50,7 +76,7 @@
   cursor: pointer;
 }
 
-.bb-opacity-slider::-webkit-slider-thumb {
+.bb-slider-control::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
@@ -62,11 +88,11 @@
   transition: transform 0.1s;
 }
 
-.bb-opacity-slider::-webkit-slider-thumb:hover {
+.bb-slider-control::-webkit-slider-thumb:hover {
   transform: scale(1.2);
 }
 
-.bb-opacity-slider::-moz-range-thumb {
+.bb-slider-control::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
@@ -75,7 +101,7 @@
   border: none;
 }
 
-.bb-opacity-val {
+.bb-slider-val {
   font-family: var(--font);
   font-size: 13px;
   font-weight: 700;
