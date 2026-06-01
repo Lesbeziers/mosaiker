@@ -283,6 +283,8 @@ const Export = (() => {
         // identifique al instante qué prefijos faltan en el JPG exportado.
         tex = _makePlaceholderTexture(THREE, slot.ratio === 'H', slot.n);
       }
+      // Marca si es una imagen real (para aplicar "cover") o un placeholder.
+      tex.userData = { real: !!bitmap };
       tex.minFilter       = THREE.LinearMipMapLinearFilter;
       tex.magFilter       = THREE.LinearFilter;
       tex.generateMipmaps = true;
@@ -295,6 +297,9 @@ const Export = (() => {
     // Construye geometría
     if (esq.type === 'grid')    _buildGrid   (THREE, pivot, esq, p, getTexture);
     if (esq.type === 'columns') _buildColumns(THREE, pivot, esq, p, getTexture);
+    if (esq.type === 'rows')    _buildRows   (THREE, pivot, esq, p, getTexture);
+    if (esq.type === 'vcolumns')_buildVColumns(THREE, pivot, esq, p, getTexture);
+    if (esq.type === 'free')    _buildFree   (THREE, pivot, esq, p, getTexture);
 
     // Render
     renderer.render(scene, camera);
@@ -305,15 +310,19 @@ const Export = (() => {
     out.height = H;
     const ctx  = out.getContext('2d');
 
-    // Fondo del lienzo (coherente con el del editor)
-    ctx.fillStyle = '#0e0e0e';
+    // Fondo del lienzo (color elegido por formato; default #0e0e0e)
+    ctx.fillStyle = (typeof Background !== 'undefined') ? Background.get(format.id) : '#0e0e0e';
     ctx.fillRect(0, 0, W, H);
 
-    // Composita el mosaico respetando su opacidad por formato
+    // Composita el mosaico respetando su opacidad y desenfoque por formato.
+    // El blur se escala a la altura real del formato (px proporcionales).
     const mosOp = (State.mosaicOpacity && typeof State.mosaicOpacity[format.id] === 'number')
       ? State.mosaicOpacity[format.id] : 1;
+    const blurPx = (typeof MosaicBlur !== 'undefined') ? MosaicBlur.blurPxFor(H, format.id) : 0;
     ctx.globalAlpha = mosOp;
+    ctx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
     ctx.drawImage(renderer.domElement, 0, 0);
+    ctx.filter = 'none';
     ctx.globalAlpha = 1;
 
     // Viñeta (si el formato la tiene activa)
@@ -428,10 +437,91 @@ const Export = (() => {
     });
   }
 
+  function _buildRows(THREE, pivot, esq, p, getTexture) {
+    const gap     = (p.gap ?? 8) * 0.01;
+    const cellW   = HORIZ_W;
+    const cellH   = HORIZ_W * 9 / 16;
+    const numRows = esq.rows.length;
+    const totalH  = numRows * cellH + (numRows - 1) * gap;
+    const startY  = totalH / 2 - cellH / 2;
+
+    const stateOffsets = State.transform?.colOffsets;
+    const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numRows)
+      ? stateOffsets
+      : (esq.defaultOffsets || new Array(numRows).fill(0));
+
+    esq.rows.forEach((row, ri) => {
+      const n = row.cells.length;
+      const rowW = n * cellW + (n - 1) * gap;
+      const y = startY - ri * (cellH + gap);
+      let x = -rowW / 2 + (offsets[ri] || 0);
+      row.cells.forEach(cell => {
+        _addMesh(THREE, pivot,
+          { n: cell.n, ratio: 'H', opacity: cell.opacity ?? 1 },
+          x, y, cellW, cellH, p, getTexture);
+        x += cellW + gap;
+      });
+    });
+  }
+
+  function _buildVColumns(THREE, pivot, esq, p, getTexture) {
+    const gap     = (p.gap ?? 8) * 0.01;
+    const cellW   = CELL_H * 9 / 16;
+    const numCols = esq.cols.length;
+    const totalW  = numCols * cellW + (numCols - 1) * gap;
+    const startX  = -totalW / 2;
+
+    const stateOffsets = State.transform?.colOffsets;
+    const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numCols)
+      ? stateOffsets
+      : (esq.defaultOffsets || new Array(numCols).fill(0));
+
+    esq.cols.forEach((col, ci) => {
+      const xCol = startX + ci * (cellW + gap);
+      const nCells = col.cells.length;
+      const colH = nCells * CELL_H + (nCells - 1) * gap;
+      let cursorY = colH / 2 + (offsets[ci] || 0);
+      col.cells.forEach(cell => {
+        const centerY = cursorY - CELL_H / 2;
+        _addMesh(THREE, pivot,
+          { n: cell.n, ratio: 'V', opacity: cell.opacity ?? 1 },
+          xCol, centerY, cellW, CELL_H, p, getTexture);
+        cursorY -= CELL_H + gap;
+      });
+    });
+  }
+
+  function _buildFree(THREE, pivot, esq, p, getTexture) {
+    const gap  = (p.gap ?? 8) * 0.01;
+    const unit = CELL_H;
+    let maxX = 0, maxY = 0;
+    esq.cells.forEach(c => { maxX = Math.max(maxX, c.x + c.w); maxY = Math.max(maxY, c.y + c.h); });
+    const totalW = maxX * unit, totalH = maxY * unit;
+    const offX = -totalW / 2, topY = totalH / 2;
+    esq.cells.forEach(c => {
+      const w = c.w * unit - gap;
+      const h = c.h * unit - gap;
+      const left = offX + c.x * unit + gap / 2;
+      const top  = topY - c.y * unit - gap / 2;
+      _addMesh(THREE, pivot,
+        { n: c.n, ratio: c.r, opacity: 1 },
+        left, top - h / 2, w, h, p, getTexture);
+    });
+  }
+
   function _addMesh(THREE, pivot, slot, x, centerY, w, h, p, getTexture) {
     const r   = ((p.radius ?? 12) / 1000) * CELL_H;
-    const geo = _makeRoundedRect(THREE, w, h, r);
     const tex = getTexture(slot);
+    // "Cover": sólo en imágenes reales. Si la proporción no coincide con el
+    // hueco, recorta (amplía desde el centro) en vez de deformar. Los
+    // placeholders mantienen mapeo completo para que el label se lea entero.
+    let coverUV = null;
+    if (tex.userData && tex.userData.real && tex.image) {
+      const iw = tex.image.width  || tex.image.naturalWidth;
+      const ih = tex.image.height || tex.image.naturalHeight;
+      if (iw && ih) coverUV = _coverUV(w / h, iw / ih);
+    }
+    const geo = _makeRoundedRect(THREE, w, h, r, coverUV);
     const mat = new THREE.MeshBasicMaterial({
       map:         tex,
       side:        THREE.FrontSide,
@@ -443,7 +533,7 @@ const Export = (() => {
     pivot.add(mesh);
   }
 
-  function _makeRoundedRect(THREE, w, h, r) {
+  function _makeRoundedRect(THREE, w, h, r, coverUV) {
     r = Math.min(r, w / 2, h / 2);
     const shape = new THREE.Shape();
     const x = -w / 2, y = -h / 2;
@@ -460,12 +550,31 @@ const Export = (() => {
     const geo = new THREE.ShapeGeometry(shape, 4);
     const pos = geo.attributes.position;
     const uvs = new Float32Array(pos.count * 2);
+    const uMin = coverUV ? coverUV.uMin : 0;
+    const uMax = coverUV ? coverUV.uMax : 1;
+    const vMin = coverUV ? coverUV.vMin : 0;
+    const vMax = coverUV ? coverUV.vMax : 1;
     for (let i = 0; i < pos.count; i++) {
-      uvs[i * 2]     = (pos.getX(i) - x) / w;
-      uvs[i * 2 + 1] = (pos.getY(i) - y) / h;
+      const fx = (pos.getX(i) - x) / w;
+      const fy = (pos.getY(i) - y) / h;
+      uvs[i * 2]     = uMin + fx * (uMax - uMin);
+      uvs[i * 2 + 1] = vMin + fy * (vMax - vMin);
     }
     geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     return geo;
+  }
+
+  // Igual que mosaic-3d.js: recorta UV para cubrir el hueco sin deformar.
+  function _coverUV(holderAspect, imgAspect) {
+    let uFrac = 1, vFrac = 1;
+    if (imgAspect > holderAspect) {
+      uFrac = holderAspect / imgAspect;
+    } else {
+      vFrac = imgAspect / holderAspect;
+    }
+    const uMin = (1 - uFrac) / 2;
+    const vMin = (1 - vFrac) / 2;
+    return { uMin, uMax: uMin + uFrac, vMin, vMax: vMin + vFrac };
   }
 
   // Placeholder visible cuando no hay imagen para un hueco.

@@ -14,8 +14,9 @@ const State = {
   // Formato activo (id de Formats.FORMATS)
   activeFormatId: null,
 
-  // Esqueleto activo (id de Skeletons.SKELETONS)
-  activeSkeletonId: 'clasico',
+  // Esqueleto activo (id de Skeletons.SKELETONS).
+  // null = ninguno aplicado aún → el botón muestra "Selecciona un mosaico".
+  activeSkeletonId: null,
 
   // Parámetros del render 3D del mosaico (sliders TRANSFORMAR)
   transform: {
@@ -44,6 +45,14 @@ const State = {
   // Opacidad del mosaico por formato (0..1). Default = 1 (totalmente opaco).
   // Sólo afecta al mosaico 3D, no a la viñeta ni a los overlays ZSE/MOK.
   mosaicOpacity: {},
+
+  // Desenfoque del mosaico por formato (0..1, fracción de la altura).
+  // Default = 0 (nítido). Sólo afecta al mosaico 3D, no a viñeta ni overlays.
+  mosaicBlur: {},
+
+  // Color de fondo del lienzo por formato (hex). Default = '#0e0e0e'.
+  // Se pinta detrás del mosaico en editor, VER TODAS y exportación.
+  backgrounds: {},
 
   // Formatos marcados OK por el usuario (entrarán a VER TODAS y al export).
   // clave = formatId, valor = true. Se elimina la entrada al desmarcar.

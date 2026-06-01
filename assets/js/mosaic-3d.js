@@ -48,6 +48,11 @@ const Mosaic3D = (() => {
   // en cada mesh para identificar visualmente qué prefijo le corresponde.
   const badgeCache = {};
 
+  // Textura del sello (banda central de los esqueletos 'stacks'). Se cachea
+  // y se invalida en refreshTextures(). userData guarda si es placeholder y
+  // a qué bitmap apunta para regenerarla sólo cuando cambia.
+  let selloTexture = null;
+
   // ── INICIALIZACIÓN ───────────────────────────────────────
 
   async function init() {
@@ -129,6 +134,12 @@ const Mosaic3D = (() => {
       State.transform.camZ = newZ;
     }
     _applyTransform();
+
+    // El marco blanco de 'stacks' se dimensiona en función de camZ; ahora
+    // que la cámara está ajustada, reconstruimos para que salga a 3 px.
+    if (activeSkeleton && activeSkeleton.type === 'stacks') {
+      _build();
+    }
 
     if (typeof UI !== 'undefined' && UI.syncTransformSliders) {
       UI.syncTransformSliders();
@@ -214,6 +225,14 @@ const Mosaic3D = (() => {
       _buildGrid(activeSkeleton);
     } else if (activeSkeleton.type === 'columns') {
       _buildColumns(activeSkeleton);
+    } else if (activeSkeleton.type === 'stacks') {
+      _buildStacks(activeSkeleton);
+    } else if (activeSkeleton.type === 'rows') {
+      _buildRows(activeSkeleton);
+    } else if (activeSkeleton.type === 'vcolumns') {
+      _buildVColumns(activeSkeleton);
+    } else if (activeSkeleton.type === 'free') {
+      _buildFree(activeSkeleton);
     }
   }
 
@@ -327,9 +346,271 @@ const Mosaic3D = (() => {
     mosaicBounds = { width: totalW, height: maxColH + offsetSpread };
   }
 
+  // Layout 'rows': transpuesto de 'columns'. Cada fila es una hilera de
+  // carátulas HORIZONTALES (16:9). Los offsets desplazan la X de cada fila
+  // (efecto ladrillo). Reutiliza State.transform.colOffsets como offset por
+  // hilera; setColOffset() ya es agnóstico al eje.
+  function _buildRows(esq) {
+    const gap     = params.gap * 0.01;
+    const cellW   = HORIZ_W;            // ancho carátula horizontal
+    const cellH   = HORIZ_W * 9 / 16;  // alto 16:9
+    const numRows = esq.rows.length;
+    const totalH  = numRows * cellH + (numRows - 1) * gap;
+    const startY  = totalH / 2 - cellH / 2;
+
+    // Offsets X por fila (runtime → default → ceros)
+    const stateOffsets = State?.transform?.colOffsets;
+    const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numRows)
+      ? stateOffsets
+      : (esq.defaultOffsets || new Array(numRows).fill(0));
+
+    let rowW = 0;
+    esq.rows.forEach((row, ri) => {
+      const n = row.cells.length;
+      rowW = n * cellW + (n - 1) * gap;
+      const y = startY - ri * (cellH + gap);
+      let x = -rowW / 2 + (offsets[ri] || 0);
+      row.cells.forEach(cell => {
+        _addMesh({ n: cell.n, ratio: 'H', opacity: cell.opacity ?? 1 }, x, y, cellW, cellH);
+        x += cellW + gap;
+      });
+    });
+
+    const offsetSpread = Math.max(0, ...offsets) - Math.min(0, ...offsets);
+    mosaicBounds = { width: rowW + offsetSpread, height: totalH };
+  }
+
+  // Layout 'vcolumns': columnas de UNA vertical (9:16) de ancho, con offset
+  // Y por columna (cascada). Los sliders mueven la posición vertical de cada
+  // columna vía State.transform.colOffsets.
+  function _buildVColumns(esq) {
+    const gap     = params.gap * 0.01;
+    const cellW   = CELL_H * 9 / 16;   // 9:16 exacto
+    const numCols = esq.cols.length;
+    const totalW  = numCols * cellW + (numCols - 1) * gap;
+    const startX  = -totalW / 2;
+
+    const stateOffsets = State?.transform?.colOffsets;
+    const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numCols)
+      ? stateOffsets
+      : (esq.defaultOffsets || new Array(numCols).fill(0));
+
+    let maxColH = 0;
+    esq.cols.forEach((col, ci) => {
+      const xCol = startX + ci * (cellW + gap);
+      const nCells = col.cells.length;
+      const colH = nCells * CELL_H + (nCells - 1) * gap;
+      if (colH > maxColH) maxColH = colH;
+      let cursorY = colH / 2 + (offsets[ci] || 0);
+      col.cells.forEach(cell => {
+        const centerY = cursorY - CELL_H / 2;
+        _addMesh({ n: cell.n, ratio: 'V', opacity: cell.opacity ?? 1 }, xCol, centerY, cellW, CELL_H);
+        cursorY -= CELL_H + gap;
+      });
+    });
+
+    const offsetSpread = Math.max(...offsets) - Math.min(...offsets);
+    mosaicBounds = { width: totalW, height: maxColH + offsetSpread };
+  }
+
+  // Layout 'free': teselado libre. Cada celda lleva {x,y,w,h} en unidades de
+  // rejilla y su ratio ('H'|'V'|'S'). El eje Y de la rejilla crece hacia abajo.
+  // Cada pieza se mete medio gap por lado → separación uniforme entre todas.
+  function _buildFree(esq) {
+    const gap  = params.gap * 0.01;
+    const unit = CELL_H;
+    let maxX = 0, maxY = 0;
+    esq.cells.forEach(c => { maxX = Math.max(maxX, c.x + c.w); maxY = Math.max(maxY, c.y + c.h); });
+    const totalW = maxX * unit, totalH = maxY * unit;
+    const offX = -totalW / 2, topY = totalH / 2;
+    esq.cells.forEach(c => {
+      const w = c.w * unit - gap;
+      const h = c.h * unit - gap;
+      const left = offX + c.x * unit + gap / 2;
+      const top  = topY - c.y * unit - gap / 2;
+      _addMesh({ n: c.n, ratio: c.r, opacity: 1 }, left, top - h / 2, w, h);
+    });
+    mosaicBounds = { width: totalW, height: totalH };
+  }
+
+  // Layout 'stacks': columnas de UNA vertical de ancho, con escalonado
+  // FIJO por columna (drop en pasos de carátula) y una banda central que
+  // reserva un hueco más ancho entre dos columnas. Sin sliders de offset.
+  // Las celdas marcadas frame (opacidad 1) llevan marco blanco de 3 pt.
+  function _buildStacks(esq) {
+    const gap       = params.gap * 0.01;
+    const step      = CELL_H + gap;
+    const bandAfter = esq.band ? esq.band.after : -1;
+    const bandW     = (esq.band && esq.band.width) || VERT_W;
+
+    // 1) Calcula posiciones de cada celda y los límites del mosaico.
+    //    La banda se inserta como una "calle" entre dos columnas, con su
+    //    propio gap a cada lado (igual que la separación entre columnas).
+    const cells = [];
+    let cursor = 0, maxX = 0, topMost = -Infinity, bottomMost = Infinity;
+    let laneX = null;
+    esq.cols.forEach((col, ci) => {
+      const drop = col.drop || 0;
+      let top = -drop * step;
+      col.cells.forEach(c => {
+        const cy = top - CELL_H / 2;
+        cells.push({ x: cursor, cy, n: c.n, opacity: c.opacity ?? 1 });
+        if (cursor + VERT_W > maxX)     maxX = cursor + VERT_W;
+        if (top > topMost)              topMost = top;
+        if (cy - CELL_H / 2 < bottomMost) bottomMost = cy - CELL_H / 2;
+        top -= step;
+      });
+      cursor += VERT_W + gap;
+      if (ci === bandAfter) { laneX = cursor; cursor += bandW + gap; }
+    });
+
+    const width   = maxX;
+    const height  = topMost - bottomMost;
+    const offsetX = -width / 2;
+    const offsetY = -(topMost + bottomMost) / 2;
+
+    // 2) Crea los meshes de carátulas centrados
+    cells.forEach(c => {
+      _addMesh(
+        { n: c.n, ratio: 'V', opacity: c.opacity, frame: c.opacity >= 0.99 },
+        c.x + offsetX, c.cy + offsetY, VERT_W, CELL_H
+      );
+    });
+
+    // 3) Banda central con el sello repetido en vertical
+    if (esq.band && laneX !== null) {
+      _addSelloLane(
+        laneX + offsetX, bandW,
+        topMost + offsetY, bottomMost + offsetY,
+        esq.band.opacity ?? 0.2, gap
+      );
+    }
+
+    mosaicBounds = { width, height };
+  }
+
+  // Dibuja la "calle" del sello: una copia centrada a 100% y copias iguales
+  // hacia arriba y abajo (misma opacidad reducida) hasta llenar la banda.
+  // El sello se escala a `laneW` de ancho; el alto sale de su proporción.
+  function _addSelloLane(xLeft, laneW, top, bottom, dimOpacity, gap) {
+    const { tex, aspect } = _getSelloTexture();
+    const selloH = laneW / aspect;
+    if (!(selloH > 0)) return;
+
+    const centerY  = (top + bottom) / 2;
+    const bandHalf = (top - bottom) / 2;
+    // Paso entre copias = alto del sello + el mismo gap que separa columnas.
+    const pitch = selloH + (gap || 0);
+
+    // Copia central a 100%
+    _addSelloMesh(xLeft, centerY, laneW, selloH, tex, 1.0);
+
+    // Copias hacia arriba/abajo mientras la copia entre en la banda
+    for (let k = 1; k <= 200; k++) {
+      const off = k * pitch;
+      if (off - selloH / 2 >= bandHalf) break; // ya fuera de la banda
+      _addSelloMesh(xLeft, centerY + off, laneW, selloH, tex, dimOpacity);
+      _addSelloMesh(xLeft, centerY - off, laneW, selloH, tex, dimOpacity);
+    }
+  }
+
+  function _addSelloMesh(xLeft, centerY, w, h, tex, opacity) {
+    const geo = _makeRoundedRect(w, h, 0, null); // logos sin esquinas redondeadas
+    const mat = new THREE.MeshBasicMaterial({
+      map:         tex,
+      side:        THREE.FrontSide,
+      transparent: true,
+      opacity,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(xLeft + w / 2, centerY, 0);
+    mesh.renderOrder = 1;
+    pivot.add(mesh);
+  }
+
+  // Devuelve { tex, aspect } del sello. Usa el bitmap cargado (SELLO_*.png)
+  // o un placeholder si no hay ninguno. Cachea para no re-subir a GPU.
+  function _getSelloTexture() {
+    const img = (typeof Images !== 'undefined' && Images.getSello) ? Images.getSello() : null;
+
+    if (!img) {
+      if (!selloTexture || !selloTexture.userData || selloTexture.userData.placeholder !== true) {
+        if (selloTexture) selloTexture.dispose();
+        selloTexture = _makeSelloPlaceholder();
+        selloTexture.userData = { placeholder: true };
+      }
+      return { tex: selloTexture, aspect: 1 };
+    }
+
+    if (!selloTexture || !selloTexture.userData || selloTexture.userData.imgRef !== img) {
+      if (selloTexture) selloTexture.dispose();
+      selloTexture = new THREE.Texture(img);
+      selloTexture.colorSpace     = THREE.SRGBColorSpace;
+      selloTexture.minFilter      = THREE.LinearMipMapLinearFilter;
+      selloTexture.magFilter      = THREE.LinearFilter;
+      selloTexture.generateMipmaps = true;
+      if (renderer && renderer.capabilities) {
+        selloTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      }
+      selloTexture.needsUpdate = true;
+      selloTexture.userData = { placeholder: false, imgRef: img };
+    }
+    const aspect = (img.width || 1) / (img.height || 1);
+    return { tex: selloTexture, aspect };
+  }
+
+  function _makeSelloPlaceholder() {
+    const s = 256;
+    const c = document.createElement('canvas');
+    c.width = s; c.height = s;
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#1a1a1a';
+    cx.fillRect(0, 0, s, s);
+    cx.strokeStyle = '#444';
+    cx.lineWidth = 4;
+    cx.strokeRect(3, 3, s - 6, s - 6);
+    cx.fillStyle = '#f0a500';
+    cx.font = `bold ${Math.round(s * 0.16)}px 'Apercu Movistar', sans-serif`;
+    cx.textAlign = 'center';
+    cx.textBaseline = 'middle';
+    cx.fillText('SELLO', s / 2, s / 2);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
   function _addMesh(slot, x, centerY, w, h) {
-    const r   = (params.radius / 1000) * CELL_H;
-    const geo = _makeRoundedRect(w, h, r);
+    const r = (params.radius / 1000) * CELL_H;
+
+    // Marco blanco (3 pt) detrás de los holders marcados frame — sólo
+    // las celdas a 100% de los esqueletos que lo piden (p.ej. stacks).
+    if (slot.frame) {
+      const b     = _borderWorld(3);
+      const wGeo  = _makeRoundedRect(w + 2 * b, h + 2 * b, r + b, null);
+      const wMat  = new THREE.MeshBasicMaterial({
+        color:       0xffffff,
+        side:        THREE.FrontSide,
+        transparent: true,
+        opacity:     1,
+      });
+      const wMesh = new THREE.Mesh(wGeo, wMat);
+      wMesh.position.set(x + w / 2, centerY, -0.002);
+      wMesh.renderOrder = 0;
+      pivot.add(wMesh);
+    }
+
+    // "Cover" centrado: si hay imagen cargada y conocemos su tamaño,
+    // recortamos su UV para que rellene el hueco sin deformar (amplía
+    // desde el centro). Si no hay imagen, mapeo completo (placeholder).
+    let coverUV = null;
+    const img = (typeof Images !== 'undefined') ? Images.getImage(slot.n) : null;
+    if (img) {
+      const iw = img.naturalWidth  || img.width;
+      const ih = img.naturalHeight || img.height;
+      if (iw && ih) coverUV = _coverUV(w / h, iw / ih);
+    }
+
+    const geo = _makeRoundedRect(w, h, r, coverUV);
     const tex = _getOrCreateTexture(slot);
 
     const mat = new THREE.MeshBasicMaterial({
@@ -340,6 +621,7 @@ const Mosaic3D = (() => {
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x + w / 2, centerY, 0);
+    mesh.renderOrder = 1;
 
     // Badge de prefijo (Sprite — siempre mira a cámara, máxima legibilidad).
     // Se añade como hijo del mesh para que herede su posición y opacidad
@@ -400,6 +682,7 @@ const Mosaic3D = (() => {
     if (!mounted) return;
     Object.values(textureCache).forEach(tex => tex.dispose());
     Object.keys(textureCache).forEach(k => delete textureCache[k]);
+    if (selloTexture) { selloTexture.dispose(); selloTexture = null; }
     if (activeSkeleton) {
       _build();
       render();
@@ -456,7 +739,32 @@ const Mosaic3D = (() => {
     render();
   }
 
-  function _makeRoundedRect(w, h, r) {
+  // Devuelve el rectángulo UV (recorte "cover" centrado) para encajar una
+  // imagen de aspecto imgAspect en un hueco de aspecto holderAspect sin
+  // deformarla, ampliando desde el centro.
+  function _coverUV(holderAspect, imgAspect) {
+    let uFrac = 1, vFrac = 1;
+    if (imgAspect > holderAspect) {
+      uFrac = holderAspect / imgAspect; // imagen más ancha → recorta lados
+    } else {
+      vFrac = imgAspect / holderAspect; // imagen más alta → recorta arriba/abajo
+    }
+    const uMin = (1 - uFrac) / 2;
+    const vMin = (1 - vFrac) / 2;
+    return { uMin, uMax: uMin + uFrac, vMin, vMax: vMin + vFrac };
+  }
+
+  // Grosor en unidades 3D que equivale a `px` píxeles en el render actual
+  // (alto del lienzo + distancia de cámara). Se usa para el marco blanco.
+  function _borderWorld(px) {
+    const lienzo = document.getElementById('lienzo');
+    const ch = lienzo ? lienzo.clientHeight : 0;
+    if (!ch || !camera) return CELL_H * 0.01;
+    const visH = 2 * params.camZ * Math.tan((camera.fov * Math.PI / 180) / 2);
+    return (px / ch) * visH;
+  }
+
+  function _makeRoundedRect(w, h, r, coverUV) {
     r = Math.min(r, w / 2, h / 2);
     const shape = new THREE.Shape();
     const x = -w / 2, y = -h / 2;
@@ -474,9 +782,15 @@ const Mosaic3D = (() => {
     const geo = new THREE.ShapeGeometry(shape, 4);
     const pos = geo.attributes.position;
     const uvs = new Float32Array(pos.count * 2);
+    const uMin = coverUV ? coverUV.uMin : 0;
+    const uMax = coverUV ? coverUV.uMax : 1;
+    const vMin = coverUV ? coverUV.vMin : 0;
+    const vMax = coverUV ? coverUV.vMax : 1;
     for (let i = 0; i < pos.count; i++) {
-      uvs[i * 2]     = (pos.getX(i) - x) / w;
-      uvs[i * 2 + 1] = (pos.getY(i) - y) / h;
+      const fx = (pos.getX(i) - x) / w; // 0..1 dentro del hueco
+      const fy = (pos.getY(i) - y) / h;
+      uvs[i * 2]     = uMin + fx * (uMax - uMin);
+      uvs[i * 2 + 1] = vMin + fy * (vMax - vMin);
     }
     geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     return geo;

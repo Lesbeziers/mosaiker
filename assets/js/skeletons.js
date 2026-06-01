@@ -26,7 +26,7 @@ const Skeletons = (() => {
 
     clasico: {
       id:   'clasico',
-      name: 'Clásico',
+      name: 'CLÁSICO',
       type: 'grid',
       cols: 5,
       rows: 4,
@@ -65,7 +65,7 @@ const Skeletons = (() => {
     // ─────────────────────────────────────────────────────
     columnas: {
       id:   'columnas',
-      name: 'Columnas',
+      name: 'COLUMNAS MIXTAS',
       type: 'columns',
       defaultOffsets: [0, 0.6, -0.4, 0.8, -0.2],
       cols: [
@@ -141,7 +141,7 @@ const Skeletons = (() => {
     // ─────────────────────────────────────────────────────
     frontal: {
       id:   'frontal',
-      name: 'Frontal',
+      name: 'COLUMNAS MIXTAS DESTACADOS',
       type: 'columns',
       defaultOffsets: [0, 0.6, -0.4, 0.8, -0.2, 0, 0.48],
       cols: [
@@ -253,15 +253,191 @@ const Skeletons = (() => {
       ],
     },
 
+    // ─────────────────────────────────────────────────────
+    // ZIG-ZAG — 10 columnas de 1 vertical de ancho, tipo 'stacks'.
+    // Es la variante SIN sello: los dos bloques de 5 columnas se juntan
+    // sin calle central. Para que las carátulas principales (opacidad 1)
+    // nunca caigan dos seguidas a la misma altura, el escalonado de media
+    // carátula es CONTINUO a lo largo de las 10 columnas: respecto a
+    // 'ZIG-ZAG + SELLO' el bloque derecho invierte su drop (0↔0.5) y mueve
+    // la principal de arriba a abajo dentro de cada columna.
+    //
+    // Particularidades:
+    //  - Todas las carátulas son verticales (9:16).
+    //  - Posiciones FIJAS (sin sliders de offset). Cada columna se alinea
+    //    "arriba" (drop 0) o "media carátula abajo" (drop 0.5), alternando.
+    //  - Las celdas a opacidad 1 llevan marco blanco de 3 pt; las demás 0.2.
+    // ─────────────────────────────────────────────────────
+    horizontal: {
+      id:   'horizontal',
+      name: 'ZIG-ZAG',
+      type: 'stacks',
+      cols: [
+        // ── bloque izquierdo (igual que ZIG-ZAG + SELLO) ──
+        { drop: 0,   cells: [ { n: 10, opacity: 0.2 }, { n: 1,  opacity: 1   } ] },
+        { drop: 0.5, cells: [ { n: 2,  opacity: 1   }, { n: 9,  opacity: 0.2 } ] },
+        { drop: 0,   cells: [ { n: 8,  opacity: 0.2 }, { n: 3,  opacity: 1   }, { n: 1,  opacity: 0.2 } ] },
+        { drop: 0.5, cells: [ { n: 4,  opacity: 1   }, { n: 7,  opacity: 0.2 } ] },
+        { drop: 0,   cells: [ { n: 6,  opacity: 0.2 }, { n: 5,  opacity: 1   }, { n: 3,  opacity: 0.2 } ] },
+        // ── bloque derecho (escalonado continuado) ──
+        { drop: 0.5, cells: [ { n: 6,  opacity: 1   }, { n: 5,  opacity: 0.2 }, { n: 8,  opacity: 0.2 } ] },
+        { drop: 0,   cells: [ { n: 4,  opacity: 0.2 }, { n: 7,  opacity: 1   } ] },
+        { drop: 0.5, cells: [ { n: 8,  opacity: 1   }, { n: 3,  opacity: 0.2 }, { n: 10, opacity: 0.2 } ] },
+        { drop: 0,   cells: [ { n: 2,  opacity: 0.2 }, { n: 9,  opacity: 1   } ] },
+        { drop: 0.5, cells: [ { n: 10, opacity: 1   }, { n: 1,  opacity: 0.2 } ] },
+      ],
+    },
+
+    // ─────────────────────────────────────────────────────
+    // ZIG-ZAG + SELLO — igual que 'ZIG-ZAG' pero con banda negra central:
+    // 5 columnas + calle del sello + 5 columnas. Tipo 'stacks'.
+    //
+    // Particularidades de este esqueleto:
+    //  - Todas las carátulas son verticales (9:16).
+    //  - Posiciones FIJAS (sin sliders de offset). Cada columna se
+    //    alinea "arriba" (drop 0) o "media carátula abajo" (drop 0.5),
+    //    alternando, tal cual el esquema de diseño.
+    //  - Las celdas a opacidad 1 llevan marco blanco de 3 pt (sobre la
+    //    resolución de exportación). Las demás van a 0.2.
+    //  - 'band' = banda negra central (PENDIENTE de definir su mecánica:
+    //    imagen repetida en horizontal tantas veces como quepa). De
+    //    momento sólo reserva el hueco entre la 5ª y la 6ª columna.
+    // ─────────────────────────────────────────────────────
+    'horizontal-sello': {
+      id:   'horizontal-sello',
+      name: 'ZIG-ZAG + SELLO',
+      type: 'stacks',
+      band: { after: 4, width: 0.65 }, // width = placeholder, pendiente
+      cols: [
+        { drop: 0,   cells: [ { n: 10, opacity: 0.2 }, { n: 1,  opacity: 1   } ] },
+        { drop: 0.5, cells: [ { n: 2,  opacity: 1   }, { n: 9,  opacity: 0.2 } ] },
+        { drop: 0,   cells: [ { n: 8,  opacity: 0.2 }, { n: 3,  opacity: 1   }, { n: 1,  opacity: 0.2 } ] },
+        { drop: 0.5, cells: [ { n: 4,  opacity: 1   }, { n: 7,  opacity: 0.2 } ] },
+        { drop: 0,   cells: [ { n: 6,  opacity: 0.2 }, { n: 5,  opacity: 1   }, { n: 3,  opacity: 0.2 } ] },
+        // ── banda negra central ──
+        { drop: 0,   cells: [ { n: 5,  opacity: 0.2 }, { n: 6,  opacity: 1   }, { n: 8,  opacity: 0.2 } ] },
+        { drop: 0.5, cells: [ { n: 7,  opacity: 1   }, { n: 4,  opacity: 0.2 } ] },
+        { drop: 0,   cells: [ { n: 3,  opacity: 0.2 }, { n: 8,  opacity: 1   }, { n: 10, opacity: 0.2 } ] },
+        { drop: 0.5, cells: [ { n: 9,  opacity: 1   }, { n: 2,  opacity: 0.2 } ] },
+        { drop: 0,   cells: [ { n: 1,  opacity: 0.2 }, { n: 10, opacity: 1   } ] },
+      ],
+    },
+
+    // ─────────────────────────────────────────────────────
+    // FILAS — muro de carátulas HORIZONTALES (16:9) dispuestas en filas.
+    // 5 filas × 6 imágenes = 30 (numeradas arriba→abajo, cada fila izq→der).
+    // Tipo 'rows': análogo a 'columns' pero transpuesto — los sliders de
+    // offset mueven la posición HORIZONTAL (X) de cada fila. El defaultOffsets
+    // escalona las filas pares media carátula (efecto ladrillo / running bond).
+    // ─────────────────────────────────────────────────────
+    filas: {
+      id:   'filas',
+      name: 'HORIZONTALES',
+      type: 'rows',
+      defaultOffsets: [0, 0.73, 0, 0.73, 0], // X por fila; media carátula en las pares
+      rows: [
+        { cells: [ { n: 1,  opacity: 1 }, { n: 2,  opacity: 1 }, { n: 3,  opacity: 1 }, { n: 4,  opacity: 1 }, { n: 5,  opacity: 1 }, { n: 6,  opacity: 1 } ] },
+        { cells: [ { n: 7,  opacity: 1 }, { n: 8,  opacity: 1 }, { n: 9,  opacity: 1 }, { n: 10, opacity: 1 }, { n: 11, opacity: 1 }, { n: 12, opacity: 1 } ] },
+        { cells: [ { n: 13, opacity: 1 }, { n: 14, opacity: 1 }, { n: 15, opacity: 1 }, { n: 16, opacity: 1 }, { n: 17, opacity: 1 }, { n: 18, opacity: 1 } ] },
+        { cells: [ { n: 19, opacity: 1 }, { n: 20, opacity: 1 }, { n: 21, opacity: 1 }, { n: 22, opacity: 1 }, { n: 23, opacity: 1 }, { n: 24, opacity: 1 } ] },
+        { cells: [ { n: 25, opacity: 1 }, { n: 26, opacity: 1 }, { n: 27, opacity: 1 }, { n: 28, opacity: 1 }, { n: 29, opacity: 1 }, { n: 30, opacity: 1 } ] },
+      ],
+    },
+
+    // ─────────────────────────────────────────────────────
+    // VERTICALES — rejilla de carátulas VERTICALES (9:16) en columnas.
+    // 10 columnas × 4 imágenes = 40 (numeradas POR COLUMNAS: col 1 → 1-4,
+    // col 2 → 5-8 … col 10 → 37-40). Tipo 'vcolumns': cada columna es de
+    // UNA vertical de ancho. Los 10 sliders de offset mueven la posición
+    // VERTICAL (Y) de cada columna. defaultOffsets escalona en cascada.
+    // ─────────────────────────────────────────────────────
+    verticales: {
+      id:   'verticales',
+      name: 'VERTICALES',
+      type: 'vcolumns',
+      defaultOffsets: [0, 0.5, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0.5], // Y por columna
+      cols: [
+        { cells: [ { n: 1,  opacity: 1 }, { n: 2,  opacity: 1 }, { n: 3,  opacity: 1 }, { n: 4,  opacity: 1 } ] },
+        { cells: [ { n: 5,  opacity: 1 }, { n: 6,  opacity: 1 }, { n: 7,  opacity: 1 }, { n: 8,  opacity: 1 } ] },
+        { cells: [ { n: 9,  opacity: 1 }, { n: 10, opacity: 1 }, { n: 11, opacity: 1 }, { n: 12, opacity: 1 } ] },
+        { cells: [ { n: 13, opacity: 1 }, { n: 14, opacity: 1 }, { n: 15, opacity: 1 }, { n: 16, opacity: 1 } ] },
+        { cells: [ { n: 17, opacity: 1 }, { n: 18, opacity: 1 }, { n: 19, opacity: 1 }, { n: 20, opacity: 1 } ] },
+        { cells: [ { n: 21, opacity: 1 }, { n: 22, opacity: 1 }, { n: 23, opacity: 1 }, { n: 24, opacity: 1 } ] },
+        { cells: [ { n: 25, opacity: 1 }, { n: 26, opacity: 1 }, { n: 27, opacity: 1 }, { n: 28, opacity: 1 } ] },
+        { cells: [ { n: 29, opacity: 1 }, { n: 30, opacity: 1 }, { n: 31, opacity: 1 }, { n: 32, opacity: 1 } ] },
+        { cells: [ { n: 33, opacity: 1 }, { n: 34, opacity: 1 }, { n: 35, opacity: 1 }, { n: 36, opacity: 1 } ] },
+        { cells: [ { n: 37, opacity: 1 }, { n: 38, opacity: 1 }, { n: 39, opacity: 1 }, { n: 40, opacity: 1 } ] },
+      ],
+    },
+
+    // ─────────────────────────────────────────────────────
+    // FANTASÍA — teselado LIBRE (sin filas/columnas) que mezcla tres
+    // formatos: apaisado 'H' (2×1), vertical 'V' (1×2) y cuadrado 'S' (1×1),
+    // sobre una rejilla invisible de unidades (aproximación "dominó").
+    // 35 piezas que cubren por completo un lienzo 10×6 (apaisado), con las
+    // juntas desalineadas a propósito. Generado y verificado (cobertura 100%,
+    // sin solapes). Tipo 'free': cada celda lleva su posición/tamaño explícito
+    // {x,y,w,h} en unidades; numeración en orden de lectura (y, luego x).
+    // ─────────────────────────────────────────────────────
+    fantasia: {
+      id:   'fantasia',
+      name: 'IRREGULAR',
+      type: 'free',
+      grid: { w: 10, h: 6 },
+      cells: [
+        { n: 1, r: 'V', x: 0, y: 0, w: 1, h: 2 },
+        { n: 2, r: 'V', x: 1, y: 0, w: 1, h: 2 },
+        { n: 3, r: 'V', x: 2, y: 0, w: 1, h: 2 },
+        { n: 4, r: 'V', x: 3, y: 0, w: 1, h: 2 },
+        { n: 5, r: 'H', x: 4, y: 0, w: 2, h: 1 },
+        { n: 6, r: 'V', x: 6, y: 0, w: 1, h: 2 },
+        { n: 7, r: 'V', x: 7, y: 0, w: 1, h: 2 },
+        { n: 8, r: 'H', x: 8, y: 0, w: 2, h: 1 },
+        { n: 9, r: 'S', x: 4, y: 1, w: 1, h: 1 },
+        { n: 10, r: 'S', x: 5, y: 1, w: 1, h: 1 },
+        { n: 11, r: 'V', x: 8, y: 1, w: 1, h: 2 },
+        { n: 12, r: 'V', x: 9, y: 1, w: 1, h: 2 },
+        { n: 13, r: 'S', x: 0, y: 2, w: 1, h: 1 },
+        { n: 14, r: 'H', x: 1, y: 2, w: 2, h: 1 },
+        { n: 15, r: 'H', x: 3, y: 2, w: 2, h: 1 },
+        { n: 16, r: 'H', x: 5, y: 2, w: 2, h: 1 },
+        { n: 17, r: 'V', x: 7, y: 2, w: 1, h: 2 },
+        { n: 18, r: 'S', x: 0, y: 3, w: 1, h: 1 },
+        { n: 19, r: 'H', x: 1, y: 3, w: 2, h: 1 },
+        { n: 20, r: 'V', x: 3, y: 3, w: 1, h: 2 },
+        { n: 21, r: 'H', x: 4, y: 3, w: 2, h: 1 },
+        { n: 22, r: 'S', x: 6, y: 3, w: 1, h: 1 },
+        { n: 23, r: 'V', x: 8, y: 3, w: 1, h: 2 },
+        { n: 24, r: 'S', x: 9, y: 3, w: 1, h: 1 },
+        { n: 25, r: 'V', x: 0, y: 4, w: 1, h: 2 },
+        { n: 26, r: 'S', x: 1, y: 4, w: 1, h: 1 },
+        { n: 27, r: 'V', x: 2, y: 4, w: 1, h: 2 },
+        { n: 28, r: 'H', x: 4, y: 4, w: 2, h: 1 },
+        { n: 29, r: 'H', x: 6, y: 4, w: 2, h: 1 },
+        { n: 30, r: 'S', x: 9, y: 4, w: 1, h: 1 },
+        { n: 31, r: 'S', x: 1, y: 5, w: 1, h: 1 },
+        { n: 32, r: 'H', x: 3, y: 5, w: 2, h: 1 },
+        { n: 33, r: 'S', x: 5, y: 5, w: 1, h: 1 },
+        { n: 34, r: 'H', x: 6, y: 5, w: 2, h: 1 },
+        { n: 35, r: 'H', x: 8, y: 5, w: 2, h: 1 },
+      ],
+    },
+
   };
 
   function init() {
-    _buildDropdown();
-    _bindDropdown();
+    _bindTrigger();
+    _updateButtonLabel(getActive());
   }
 
+  // Orden de presentación en el selector (independiente del orden de
+  // definición del objeto). Los ids no listados se añaden al final.
+  const ORDER = ['filas', 'verticales', 'clasico', 'columnas', 'frontal', 'horizontal', 'horizontal-sello', 'fantasia'];
+
   function getAll() {
-    return Object.values(SKELETONS);
+    const known = ORDER.map(id => SKELETONS[id]).filter(Boolean);
+    const rest  = Object.values(SKELETONS).filter(e => !ORDER.includes(e.id));
+    return [...known, ...rest];
   }
 
   function getById(id) {
@@ -272,73 +448,322 @@ const Skeletons = (() => {
     return State.activeSkeletonId ? getById(State.activeSkeletonId) : null;
   }
 
+  // Nº de imágenes DISTINTAS que necesita un esqueleto para completarse.
+  // OJO: no es el nº de huecos — un esqueleto puede reutilizar la misma
+  // imagen en varios huecos (p.ej. 'frontal' tiene 84 huecos pero 19 imágenes).
+  function imageCount(esq) {
+    return imageStats(esq).total;
+  }
+
+  // Desglose de imágenes DISTINTAS por orientación.
+  // Cada imagen (prefijo n) tiene un ratio fijo (todas son 9:16 o 16:9),
+  // así que mapeamos n→ratio y contamos. Devuelve { total, h, v }.
+  function imageStats(esq) {
+    const map = new Map(); // n -> 'H' | 'V'
+    const put = (n, ratio) => { if (!map.has(n)) map.set(n, ratio); };
+    if (esq.type === 'grid') {
+      esq.slots.forEach(s => put(s.n, s.ratio));
+    } else if (esq.type === 'columns') {
+      esq.cols.forEach(c => c.cells.forEach(cell => put(cell.n, cell.type === 'h' ? 'H' : 'V')));
+    } else if (esq.type === 'stacks') {
+      // Todas las celdas son verticales.
+      esq.cols.forEach(c => c.cells.forEach(cell => put(cell.n, 'V')));
+    } else if (esq.type === 'rows') {
+      // Todas las celdas son horizontales.
+      esq.rows.forEach(r => r.cells.forEach(cell => put(cell.n, 'H')));
+    } else if (esq.type === 'vcolumns') {
+      // Todas las celdas son verticales.
+      esq.cols.forEach(c => c.cells.forEach(cell => put(cell.n, 'V')));
+    } else if (esq.type === 'free') {
+      // Mezcla libre: cada celda declara su ratio ('H' | 'V' | 'S').
+      esq.cells.forEach(c => put(c.n, c.r));
+    }
+    let h = 0, v = 0, s = 0;
+    map.forEach(r => { if (r === 'H') h++; else if (r === 'S') s++; else v++; });
+    return { total: map.size, h, v, s };
+  }
+
   function setActive(id) {
     const esq = getById(id);
     if (!esq) return;
     State.activeSkeletonId = id;
     // Inicializa los offsets de columna según el esqueleto activo
     State.transform.colOffsets = esq.defaultOffsets ? [...esq.defaultOffsets] : [];
-    _updateTrigger(esq);
-    _markSelectedOption(id);
+    _updateButtonLabel(esq);
     if (typeof Mosaic3D !== 'undefined') Mosaic3D.setSkeleton(esq);
     if (typeof UI       !== 'undefined' && UI.renderColOffsets) UI.renderColOffsets();
   }
 
-  // ── PRIVADAS ──────────────────────────────────────────────
+  // ── BOTÓN + MODAL ─────────────────────────────────────────
 
-  function _buildDropdown() {
-    const optionsEl = document.getElementById('skeleton-options');
-    if (!optionsEl) return;
-    optionsEl.innerHTML = '';
+  function _bindTrigger() {
+    const trigger = document.getElementById('skeleton-trigger');
+    if (trigger) trigger.addEventListener('click', _openModal);
+  }
+
+  function _updateButtonLabel(esq) {
+    const valueEl = document.getElementById('skeleton-value');
+    if (valueEl) valueEl.textContent = esq ? esq.name : 'Selecciona un mosaico';
+  }
+
+  function _openModal() {
+    document.getElementById('mosaic-picker-modal')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'mosaic-picker-modal';
+    overlay.className = 'modal-overlay';
+    overlay.addEventListener('click', e => { if (e.target === overlay) _close(); });
+
+    const modal = document.createElement('div');
+    modal.className = 'mosaic-modal';
+
+    const header = document.createElement('div');
+    header.className = 'mosaic-modal-header';
+    const title = document.createElement('div');
+    title.className = 'mosaic-modal-title';
+    title.textContent = 'Selecciona un mosaico';
+    const close = document.createElement('button');
+    close.className = 'mosaic-modal-close';
+    close.innerHTML = '&times;';
+    close.addEventListener('click', _close);
+    header.appendChild(title);
+    header.appendChild(close);
+
+    const grid = document.createElement('div');
+    grid.className = 'mosaic-modal-grid';
 
     getAll().forEach(esq => {
-      const opt = document.createElement('div');
-      opt.className = 'custom-select-option';
-      opt.textContent = esq.name;
-      opt.dataset.id = esq.id;
-      optionsEl.appendChild(opt);
+      const card = document.createElement('div');
+      card.className = 'mosaic-card' + (esq.id === State.activeSkeletonId ? ' selected' : '');
+      card.dataset.id = esq.id;
+
+      const name = document.createElement('div');
+      name.className = 'mosaic-card-name';
+      name.textContent = esq.name;
+
+      const thumb = document.createElement('div');
+      thumb.className = 'mosaic-card-thumb';
+      thumb.innerHTML = _thumbSVG(esq);
+
+      const stats = imageStats(esq);
+      const count = document.createElement('div');
+      count.className = 'mosaic-card-count';
+      count.textContent = stats.total + (stats.total === 1 ? ' imagen' : ' imágenes');
+
+      const breakdown = document.createElement('div');
+      breakdown.className = 'mosaic-card-breakdown';
+      breakdown.innerHTML =
+        `<span class="bd-hor">${stats.h} HOR</span>` +
+        `<span class="bd-sep"> - </span>` +
+        `<span class="bd-ver">${stats.v} VER</span>` +
+        (stats.s ? `<span class="bd-sep"> - </span><span class="bd-cua">${stats.s} CUA</span>` : '');
+
+      card.appendChild(name);
+      card.appendChild(thumb);
+      card.appendChild(count);
+      card.appendChild(breakdown);
+      card.addEventListener('click', () => { setActive(esq.id); _close(); });
+      grid.appendChild(card);
     });
-  }
 
-  function _bindDropdown() {
-    const dropdown  = document.getElementById('skeleton-dropdown');
-    const trigger   = dropdown?.querySelector('.custom-select-trigger');
-    const optionsEl = document.getElementById('skeleton-options');
-    if (!dropdown || !trigger || !optionsEl) return;
+    modal.appendChild(header);
+    modal.appendChild(grid);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
 
-    trigger.addEventListener('click', () => {
-      dropdown.classList.toggle('open');
-    });
-
-    document.addEventListener('click', e => {
-      if (!dropdown.contains(e.target)) dropdown.classList.remove('open');
-    });
-
-    optionsEl.addEventListener('click', e => {
-      const opt = e.target.closest('.custom-select-option');
-      if (!opt) return;
-      dropdown.classList.remove('open');
-      setActive(opt.dataset.id);
-    });
-
-    // Al iniciar, sincroniza el trigger con el activo (si lo hay)
-    const active = getActive();
-    if (active) {
-      _updateTrigger(active);
-      _markSelectedOption(active.id);
+    // Esc cierra la modal
+    function _onKey(e) { if (e.key === 'Escape') _close(); }
+    function _close() {
+      overlay.remove();
+      document.removeEventListener('keydown', _onKey);
     }
+    document.addEventListener('keydown', _onKey);
   }
 
-  function _updateTrigger(esq) {
-    const valueEl = document.getElementById('skeleton-value');
-    if (valueEl) valueEl.textContent = esq.name;
-  }
+  // ── THUMBNAIL SVG ─────────────────────────────────────────
+  // Genera un SVG en miniatura del layout leyendo los datos del esqueleto.
+  // Replica la geometría de mosaic-3d.js (_buildGrid / _buildColumns) en 2D.
+  // Código de color: rojo = horizontal (16:9), verde = vertical (9:16).
+  // La opacidad del hueco se traslada a fill-opacity → los huecos atenuados
+  // se ven en un tono más apagado sobre el fondo oscuro de la tarjeta.
+  function _thumbSVG(esq) {
+    const CELL_H = 1.0;
+    const VERT_W = 0.65;
+    const HORIZ_W = VERT_W * 2 + 0.08;
+    const gap = 0.08;
+    const rects = [];
 
-  function _markSelectedOption(id) {
-    document.querySelectorAll('#skeleton-options .custom-select-option').forEach(o => {
-      o.classList.toggle('selected', o.dataset.id === id);
+    if (esq.type === 'grid') {
+      const { cols, rows, slots } = esq;
+      const colWidths = [];
+      for (let c = 0; c < cols; c++) {
+        const s = slots[c];
+        colWidths.push(s && s.ratio === 'H' ? HORIZ_W : VERT_W);
+      }
+      const rowW = colWidths.reduce((a, b) => a + b, 0) + gap * (cols - 1);
+      const totalH = rows * CELL_H + (rows - 1) * gap;
+      const startX = -rowW / 2;
+      const startY = totalH / 2 - CELL_H / 2;
+      for (let row = 0; row < rows; row++) {
+        let x = startX;
+        const y = startY - row * (CELL_H + gap);
+        for (let c = 0; c < cols; c++) {
+          const s = slots[row * cols + c];
+          if (!s) continue;
+          const cw = colWidths[c];
+          rects.push({ x, top: y + CELL_H / 2, w: cw, h: CELL_H, ratio: s.ratio, opacity: s.opacity ?? 1 });
+          x += cw + gap;
+        }
+      }
+    } else if (esq.type === 'columns') {
+      const H_H = CELL_H * 0.5625;
+      const V_H = CELL_H;
+      const colW = VERT_W * 2 + gap;
+      const numCols = esq.cols.length;
+      const totalW = numCols * colW + (numCols - 1) * gap;
+      const startX = -totalW / 2;
+      const offsets = esq.defaultOffsets || new Array(numCols).fill(0);
+
+      esq.cols.forEach((col, ci) => {
+        const xCol = startX + ci * (colW + gap);
+        let colH = 0, i = 0;
+        while (i < col.cells.length) {
+          if (col.cells[i].type === 'h') { colH += H_H; i++; }
+          else { colH += V_H; i += 2; }
+          if (i < col.cells.length) colH += gap;
+        }
+        let cursorY = colH / 2 + (offsets[ci] || 0);
+        i = 0;
+        while (i < col.cells.length) {
+          const cell = col.cells[i];
+          if (cell.type === 'h') {
+            rects.push({ x: xCol, top: cursorY, w: colW, h: H_H, ratio: 'H', opacity: cell.opacity ?? 1 });
+            cursorY -= H_H + gap;
+            i++;
+          } else {
+            const cr = col.cells[i + 1];
+            rects.push({ x: xCol, top: cursorY, w: VERT_W, h: V_H, ratio: 'V', opacity: cell.opacity ?? 1 });
+            if (cr) rects.push({ x: xCol + VERT_W + gap, top: cursorY, w: VERT_W, h: V_H, ratio: 'V', opacity: cr.opacity ?? 1 });
+            cursorY -= V_H + gap;
+            i += 2;
+          }
+        }
+      });
+    } else if (esq.type === 'stacks') {
+      // Columnas de 1 vertical de ancho, con escalonado fijo por columna
+      // (drop en pasos de carátula) y banda central que reserva un hueco
+      // más ancho entre dos columnas.
+      const step = CELL_H + gap;
+      const bandAfter = esq.band ? esq.band.after : -1;
+      const bandW = (esq.band && esq.band.width) || VERT_W;
+      let x = 0, laneX = null;
+      esq.cols.forEach((col, ci) => {
+        const drop = col.drop || 0;
+        let top = -drop * step;
+        col.cells.forEach(cell => {
+          const op = cell.opacity ?? 1;
+          rects.push({ x, top, w: VERT_W, h: CELL_H, ratio: 'V', opacity: op, frame: op >= 0.99 });
+          top -= step;
+        });
+        x += VERT_W + gap;
+        if (ci === bandAfter) { laneX = x; x += bandW + gap; }
+      });
+      // Sello repetido en la calle central (placeholder cuadrado): copia
+      // central opaca + copias atenuadas arriba/abajo hasta llenar la banda.
+      if (esq.band && laneX !== null && rects.length) {
+        let tM = -Infinity, bM = Infinity;
+        rects.forEach(r => { if (r.top > tM) tM = r.top; if (r.top - r.h < bM) bM = r.top - r.h; });
+        const selloH = bandW;
+        const cy = (tM + bM) / 2, half = (tM - bM) / 2;
+        const pushSello = (centerY, op) =>
+          rects.push({ x: laneX, top: centerY + selloH / 2, w: bandW, h: selloH, ratio: 'V', opacity: op, sello: true });
+        pushSello(cy, 1);
+        const pitch = selloH + gap; // mismo hueco que entre columnas
+        for (let k = 1; k <= 30; k++) {
+          const off = k * pitch;
+          if (off - selloH / 2 >= half) break;
+          pushSello(cy + off, 0.25);
+          pushSello(cy - off, 0.25);
+        }
+      }
+    } else if (esq.type === 'rows') {
+      // Filas de carátulas horizontales (16:9) con offset X por fila.
+      const cellW = HORIZ_W;
+      const cellH = HORIZ_W * 9 / 16;
+      const numRows = esq.rows.length;
+      const offsets = esq.defaultOffsets || new Array(numRows).fill(0);
+      const totalH = numRows * cellH + (numRows - 1) * gap;
+      const startY = totalH / 2 - cellH / 2;
+      esq.rows.forEach((row, ri) => {
+        const n = row.cells.length;
+        const rowW = n * cellW + (n - 1) * gap;
+        const centerY = startY - ri * (cellH + gap);
+        let x = -rowW / 2 + (offsets[ri] || 0);
+        row.cells.forEach(cell => {
+          rects.push({ x, top: centerY + cellH / 2, w: cellW, h: cellH, ratio: 'H', opacity: cell.opacity ?? 1 });
+          x += cellW + gap;
+        });
+      });
+    } else if (esq.type === 'vcolumns') {
+      // Columnas de UNA vertical (9:16) con offset Y por columna.
+      const cellW = CELL_H * 9 / 16;
+      const cellH = CELL_H;
+      const numCols = esq.cols.length;
+      const totalW = numCols * cellW + (numCols - 1) * gap;
+      const startX = -totalW / 2;
+      const offsets = esq.defaultOffsets || new Array(numCols).fill(0);
+      esq.cols.forEach((col, ci) => {
+        const xCol = startX + ci * (cellW + gap);
+        const nCells = col.cells.length;
+        const colH = nCells * cellH + (nCells - 1) * gap;
+        let cursorY = colH / 2 + (offsets[ci] || 0);
+        col.cells.forEach(cell => {
+          rects.push({ x: xCol, top: cursorY, w: cellW, h: cellH, ratio: 'V', opacity: cell.opacity ?? 1 });
+          cursorY -= cellH + gap;
+        });
+      });
+    } else if (esq.type === 'free') {
+      // Teselado libre en rejilla de unidades. Cada celda se mete hacia
+      // dentro medio gap por lado para mostrar la separación uniforme.
+      let maxX = 0, maxY = 0;
+      esq.cells.forEach(c => { maxX = Math.max(maxX, c.x + c.w); maxY = Math.max(maxY, c.y + c.h); });
+      const startX = -maxX / 2, startTop = maxY / 2;
+      esq.cells.forEach(c => {
+        const x = startX + c.x + gap / 2;
+        const top = startTop - c.y - gap / 2;
+        rects.push({ x, top, w: c.w - gap, h: c.h - gap, ratio: c.r, opacity: 1 });
+      });
+    }
+
+    if (!rects.length) return '';
+
+    let minX = Infinity, maxX = -Infinity, maxTop = -Infinity, minBottom = Infinity;
+    rects.forEach(r => {
+      minX = Math.min(minX, r.x);
+      maxX = Math.max(maxX, r.x + r.w);
+      maxTop = Math.max(maxTop, r.top);
+      minBottom = Math.min(minBottom, r.top - r.h);
     });
+    const W = maxX - minX;
+    const H = maxTop - minBottom;
+
+    const H_BASE = '#e23b30'; // horizontal 16:9
+    const V_BASE = '#23b06e'; // vertical 9:16
+    const S_BASE = '#2e6ef0'; // cuadrado 1:1
+    const rx = 0.04;
+
+    let body = '';
+    rects.forEach(r => {
+      const y = maxTop - r.top; // flip eje Y (mundo arriba → SVG abajo)
+      const fill = r.sello ? '#cfcfcf' : (r.ratio === 'H' ? H_BASE : r.ratio === 'S' ? S_BASE : V_BASE);
+      // Marco blanco (3 pt) en celdas a 100%; trazo tenue en el resto.
+      const stroke = r.frame ? '#ffffff' : 'rgba(255,255,255,0.18)';
+      const sw     = r.frame ? 0.05 : 0.012;
+      body += `<rect x="${r.x.toFixed(3)}" y="${y.toFixed(3)}" width="${r.w.toFixed(3)}" height="${r.h.toFixed(3)}" rx="${rx}" fill="${fill}" fill-opacity="${(r.opacity).toFixed(2)}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    });
+
+    return `<svg viewBox="${minX.toFixed(3)} 0 ${W.toFixed(3)} ${H.toFixed(3)}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${body}</svg>`;
   }
 
-  return { init, getAll, getById, getActive, setActive };
+  return { init, getAll, getById, getActive, setActive, imageCount };
 })();

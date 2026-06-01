@@ -204,6 +204,8 @@ const Project = (() => {
     State.overlays          = { ...(data.overlays         || {}) };
     State.vignettes         = JSON.parse(JSON.stringify(data.vignettes || {}));
     State.mosaicOpacity     = { ...(data.mosaicOpacity    || {}) };
+    State.mosaicBlur        = { ...(data.mosaicBlur       || {}) };
+    State.backgrounds       = { ...(data.backgrounds      || {}) };
     State.formatsOk         = { ...(data.formatsOk        || {}) };
     State.formatSnapshots   = { ...(data.formatSnapshots  || {}) };
     State.showImagePrefixes = !!data.showImagePrefixes;
@@ -360,6 +362,8 @@ const Project = (() => {
       overlays:        { ...State.overlays },
       vignettes:       JSON.parse(JSON.stringify(State.vignettes)),
       mosaicOpacity:   { ...State.mosaicOpacity },
+      mosaicBlur:      { ...State.mosaicBlur },
+      backgrounds:     { ...State.backgrounds },
       formatsOk:       { ...State.formatsOk },
       formatSnapshots: { ...State.formatSnapshots },
       showImagePrefixes: !!State.showImagePrefixes,
