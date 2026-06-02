@@ -285,8 +285,12 @@ const UI = (() => {
     const h = lienzo.clientHeight;
     if (w === 0 || h === 0) return null;
 
-    // Fuerza un render fresco del WebGL antes de leer el buffer
-    if (typeof Mosaic3D !== 'undefined') Mosaic3D.render();
+    // Render "limpio" del WebGL (sin índices ni resalte amarillo: son ayudas
+    // solo del editor). Se restaura al final con endCapture().
+    if (typeof Mosaic3D !== 'undefined') {
+      if (Mosaic3D.beginCapture) Mosaic3D.beginCapture();
+      else Mosaic3D.render();
+    }
 
     const out = document.createElement('canvas');
     out.width  = w;
@@ -320,6 +324,9 @@ const UI = (() => {
       ctx.filter = 'none';
       ctx.globalAlpha = 1;
     }
+
+    // Restaura las ayudas de edición (índices/resalte) en el lienzo en vivo.
+    if (typeof Mosaic3D !== 'undefined' && Mosaic3D.endCapture) Mosaic3D.endCapture();
 
     // 2) Viñeta (si está activa) — esperamos a que esté decodificada
     const vig = lienzo.querySelector('.lienzo-vignette');

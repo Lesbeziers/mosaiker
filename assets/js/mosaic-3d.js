@@ -59,6 +59,8 @@ const Mosaic3D = (() => {
   let _slotIndex    = 0;     // contador de tiles durante _build()
   let _raycaster    = null;  // THREE.Raycaster (lazy)
   let _highlightKey = null;  // contenedor con foco amarillo (interacción) o null
+  let _capturing    = false; // true durante el snapshot de VER TODAS: oculta
+                             // ayudas de edición (índices + resalte amarillo)
 
   // ── INICIALIZACIÓN ───────────────────────────────────────
 
@@ -606,7 +608,7 @@ const Mosaic3D = (() => {
 
     // Foco amarillo del contenedor con el que se interactúa: rectángulo algo
     // mayor por detrás → se ve como un borde alrededor del tile.
-    if (slotKey === _highlightKey) {
+    if (slotKey === _highlightKey && !_capturing) {
       const hb   = _borderWorld(3);
       const hGeo = _makeRoundedRect(w + 2 * hb, h + 2 * hb, r + hb, null);
       const hMat = new THREE.MeshBasicMaterial({ color: 0xf0a500, side: THREE.FrontSide, transparent: true, opacity: 1 });
@@ -680,7 +682,7 @@ const Mosaic3D = (() => {
     badge.scale.set(badgeSize, badgeSize, 1);
     badge.position.set(0, 0, 0.01); // ligeramente por delante del mesh
     badge.renderOrder = 10;          // asegura que se pinta después del mesh
-    badge.visible = !!(typeof State !== 'undefined' && State.showImagePrefixes);
+    badge.visible = !_capturing && !!(typeof State !== 'undefined' && State.showImagePrefixes);
     badge.userData.isPrefixBadge = true;
     mesh.add(badge);
 
@@ -925,6 +927,21 @@ const Mosaic3D = (() => {
     rebuild();
   }
 
+  // Render "limpio" para capturar el snapshot de VER TODAS: oculta los índices
+  // y el resalte amarillo (ayudas de edición). Con preserveDrawingBuffer, el
+  // buffer queda listo para leerse hasta el próximo render.
+  function beginCapture() {
+    _capturing = true;
+    _build();
+    render();
+  }
+
+  function endCapture() {
+    _capturing = false;
+    _build();
+    render();
+  }
+
   // Escala la imagen del contenedor por un factor (rueda). Crece/encoge desde
   // el centro del encuadre actual. Acotado a [1, 3] (100%–300%).
   function scaleByFactor(key, factor) {
@@ -968,6 +985,6 @@ const Mosaic3D = (() => {
   return {
     init, setSkeleton, setFormat, setTransform, setColOffset, resize, render, rebuild,
     fitToLienzo, refreshTextures, setPrefixesVisible, getTHREE,
-    pickKeyAt, panByScreen, scaleByFactor, setHighlight,
+    pickKeyAt, panByScreen, scaleByFactor, setHighlight, beginCapture, endCapture,
   };
 })();
