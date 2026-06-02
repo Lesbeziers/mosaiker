@@ -1,13 +1,20 @@
 // ============================================================
-// MOSAIC-OPACITY.JS — Slider de opacidad del mosaico por formato
+// MOSAIC-BLUR.JS — Slider de desenfoque del mosaico por formato
 //
-// Vive en la bottom-bar (zona izquierda) junto a los switches de
-// overlays. El valor se guarda por formato en State.mosaicOpacity[id]
-// (0..1, default 1). Se aplica vía CSS sobre el canvas WebGL en vivo;
-// VER TODAS y Export también lo respetan al componer.
+// Hermano de mosaic-opacity.js. Vive en la bottom-bar (#bb-blur).
+// El valor se guarda por formato en State.mosaicBlur[id] (0..1,
+// default 0). Se aplica vía CSS filter:blur() sobre el canvas WebGL
+// en vivo; VER TODAS y Export también lo respetan al componer.
+//
+// El desenfoque se expresa como FRACCIÓN de la altura del lienzo
+// (no en px fijos): así el preview del editor, la snapshot de VER
+// TODAS y el JPG exportado a resolución real lucen igual de borrosos.
 // ============================================================
 
-const MosaicOpacity = (() => {
+const MosaicBlur = (() => {
+
+  // Desenfoque máximo (slider al 100%) = 5% de la altura.
+  const MAX_BLUR_FRAC = 0.05;
 
   function init() {
     update();
@@ -19,19 +26,24 @@ const MosaicOpacity = (() => {
     _applyToCanvas();
   }
 
-  // Devuelve la opacidad actual del formato activo (0..1).
-  // Si no hay formato o no se ha tocado, devuelve 1.
+  // Devuelve el desenfoque normalizado del formato (0..1, default 0).
   function get(formatId) {
     const id = formatId ?? State.activeFormatId;
-    if (!id) return 1;
-    const v = State.mosaicOpacity[id];
-    return (typeof v === 'number') ? v : 1;
+    if (!id) return 0;
+    const v = State.mosaicBlur[id];
+    return (typeof v === 'number') ? v : 0;
+  }
+
+  // Convierte el valor normalizado a px de blur para una altura dada.
+  // Lo usan el editor (altura en pantalla), VER TODAS y Export (altura real).
+  function blurPxFor(height, formatId) {
+    return get(formatId) * MAX_BLUR_FRAC * (height || 0);
   }
 
   // ── PRIVADAS ─────────────────────────────────────────────
 
   function _renderSlider() {
-    const container = document.getElementById('bb-opacity');
+    const container = document.getElementById('bb-blur');
     if (!container) return;
     container.innerHTML = '';
 
@@ -43,7 +55,7 @@ const MosaicOpacity = (() => {
 
     const label = document.createElement('span');
     label.className = 'bb-slider-label';
-    label.textContent = 'Opacidad';
+    label.textContent = 'Desenfoque';
 
     const slider = document.createElement('input');
     slider.type  = 'range';
@@ -60,7 +72,7 @@ const MosaicOpacity = (() => {
     slider.addEventListener('input', () => {
       const v = +slider.value;
       val.textContent = v;
-      State.mosaicOpacity[fmt.id] = v / 100;
+      State.mosaicBlur[fmt.id] = v / 100;
       _applyToCanvas();
     });
 
@@ -71,8 +83,9 @@ const MosaicOpacity = (() => {
   function _applyToCanvas() {
     const canvas = document.querySelector('#lienzo .mosaic-canvas');
     if (!canvas) return;
-    canvas.style.opacity = String(get());
+    const px = blurPxFor(canvas.clientHeight || canvas.height || 0);
+    canvas.style.filter = px > 0 ? `blur(${px}px)` : 'none';
   }
 
-  return { init, update, get };
+  return { init, update, get, blurPxFor };
 })();

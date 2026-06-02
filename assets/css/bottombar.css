@@ -15,21 +15,63 @@
   padding: 0 16px;
 }
 
+#bb-background,
 #bb-opacity,
+#bb-blur,
 #bb-overlays {
   display: flex;
   align-items: center;
   gap: 30px;
 }
 
-/* ── SLIDER DE OPACIDAD DEL MOSAICO ───────────────────────── */
-.bb-opacity-wrap {
+/* ── FONDO (cuadradito de color) ──────────────────────────── */
+.bb-bg-wrap {
   display: inline-flex;
   align-items: center;
   gap: 10px;
 }
 
-.bb-opacity-label {
+.bb-bg-swatch {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--col-border);
+}
+
+.bb-bg-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.bb-bg-swatch::-webkit-color-swatch { border: none; border-radius: 4px; }
+.bb-bg-swatch::-moz-color-swatch { border: none; border-radius: 4px; }
+
+.bb-bg-imgbtn {
+  font-family: var(--font);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--col-text);
+  background: #2a2a2a; border: 1px solid var(--col-border);
+  border-radius: 4px; height: 22px; padding: 0 8px; cursor: pointer;
+}
+.bb-bg-imgbtn:hover { filter: brightness(1.2); }
+.bb-bg-imgbtn.active { background: var(--col-yellow); color: #111; border-color: var(--col-yellow); }
+
+.bb-bg-clear {
+  background: none; border: none; color: #888;
+  font-size: 16px; line-height: 1; cursor: pointer; padding: 0 2px;
+}
+.bb-bg-clear:hover { color: #fff; }
+
+/* ── SLIDERS DEL MOSAICO (opacidad, desenfoque…) ──────────── */
+.bb-slider-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bb-slider-label {
   font-family: var(--font);
   font-size: 13px;
   font-weight: 700;
@@ -39,7 +81,7 @@
   white-space: nowrap;
 }
 
-.bb-opacity-slider {
+.bb-slider-control {
   width: 130px;
   height: 3px;
   -webkit-appearance: none;
@@ -50,7 +92,7 @@
   cursor: pointer;
 }
 
-.bb-opacity-slider::-webkit-slider-thumb {
+.bb-slider-control::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
@@ -62,11 +104,11 @@
   transition: transform 0.1s;
 }
 
-.bb-opacity-slider::-webkit-slider-thumb:hover {
+.bb-slider-control::-webkit-slider-thumb:hover {
   transform: scale(1.2);
 }
 
-.bb-opacity-slider::-moz-range-thumb {
+.bb-slider-control::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
@@ -75,7 +117,7 @@
   border: none;
 }
 
-.bb-opacity-val {
+.bb-slider-val {
   font-family: var(--font);
   font-size: 13px;
   font-weight: 700;

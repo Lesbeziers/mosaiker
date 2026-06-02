@@ -17,6 +17,11 @@ const Export = (() => {
   const VERT_W  = 0.65;
   const HORIZ_W = VERT_W * 2 + 0.08;
 
+  // Claves de contenedor (orden de render) para aplicar el ajuste de encuadre
+  // igual que el editor. Se resetean al construir la geometría de cada formato.
+  let _exSlotIndex  = 0;
+  let _exSkeletonId = '?';
+
   function init() {
     document.getElementById('btn-exportar')?.addEventListener('click', _showModal);
   }
@@ -183,13 +188,15 @@ const Export = (() => {
     // con <img> es completamente robusto.
     const fullBitmaps = {};
     const numbers = (typeof Images !== 'undefined') ? Images.getLoadedNumbers() : [];
-    for (const n of numbers) {
-      const file = Images.getOriginalFile(n);
+    // Incluye también las imágenes vinculadas a contenedores (claves string).
+    const boundKeys = (State.containerImages) ? Object.keys(State.containerImages) : [];
+    for (const k of [...numbers, ...boundKeys]) {
+      const file = Images.getOriginalFile(k);
       if (!file) continue;
       try {
-        fullBitmaps[n] = await _decodeFullRes(file);
+        fullBitmaps[k] = await _decodeFullRes(file);
       } catch (err) {
-        console.warn(`[Mosaiker] No se pudo decodificar imagen ${n} (${file.name}):`, err);
+        console.warn(`[Mosaiker] No se pudo decodificar imagen ${k} (${file.name}):`, err);
       }
     }
 
@@ -283,6 +290,8 @@ const Export = (() => {
         // identifique al instante qué prefijos faltan en el JPG exportado.
         tex = _makePlaceholderTexture(THREE, slot.ratio === 'H', slot.n);
       }
+      // Marca si es una imagen real (para aplicar "cover") o un placeholder.
+      tex.userData = { real: !!bitmap };
       tex.minFilter       = THREE.LinearMipMapLinearFilter;
       tex.magFilter       = THREE.LinearFilter;
       tex.generateMipmaps = true;
@@ -292,9 +301,15 @@ const Export = (() => {
       return tex;
     };
 
-    // Construye geometría
+    // Construye geometría. Resetea las claves de contenedor (orden de render)
+    // para aplicar el mismo ajuste de encuadre que el editor.
+    _exSlotIndex = 0;
+    _exSkeletonId = esq.id;
     if (esq.type === 'grid')    _buildGrid   (THREE, pivot, esq, p, getTexture);
     if (esq.type === 'columns') _buildColumns(THREE, pivot, esq, p, getTexture);
+    if (esq.type === 'rows')    _buildRows   (THREE, pivot, esq, p, getTexture);
+    if (esq.type === 'vcolumns')_buildVColumns(THREE, pivot, esq, p, getTexture);
+    if (esq.type === 'free')    _buildFree   (THREE, pivot, esq, p, getTexture);
 
     // Render
     renderer.render(scene, camera);
@@ -305,15 +320,28 @@ const Export = (() => {
     out.height = H;
     const ctx  = out.getContext('2d');
 
-    // Fondo del lienzo (coherente con el del editor)
-    ctx.fillStyle = '#0e0e0e';
+    // Fondo del lienzo (color elegido por formato; default #0e0e0e)
+    ctx.fillStyle = (typeof Background !== 'undefined') ? Background.get(format.id) : '#0e0e0e';
     ctx.fillRect(0, 0, W, H);
 
-    // Composita el mosaico respetando su opacidad por formato
+    // Imagen de fondo del formato (cover), por detrás del mosaico
+    if (typeof Background !== 'undefined' && Background.hasImage && Background.hasImage(format.id)) {
+      const bgUrl = Background.getImageUrl(format.id);
+      if (bgUrl) {
+        const bgImg = await _loadImage(bgUrl);
+        if (bgImg) _drawCover(ctx, bgImg, W, H);
+      }
+    }
+
+    // Composita el mosaico respetando su opacidad y desenfoque por formato.
+    // El blur se escala a la altura real del formato (px proporcionales).
     const mosOp = (State.mosaicOpacity && typeof State.mosaicOpacity[format.id] === 'number')
       ? State.mosaicOpacity[format.id] : 1;
+    const blurPx = (typeof MosaicBlur !== 'undefined') ? MosaicBlur.blurPxFor(H, format.id) : 0;
     ctx.globalAlpha = mosOp;
+    ctx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
     ctx.drawImage(renderer.domElement, 0, 0);
+    ctx.filter = 'none';
     ctx.globalAlpha = 1;
 
     // Viñeta (si el formato la tiene activa)
@@ -428,10 +456,95 @@ const Export = (() => {
     });
   }
 
+  function _buildRows(THREE, pivot, esq, p, getTexture) {
+    const gap     = (p.gap ?? 8) * 0.01;
+    const cellW   = HORIZ_W;
+    const cellH   = HORIZ_W * 9 / 16;
+    const numRows = esq.rows.length;
+    const totalH  = numRows * cellH + (numRows - 1) * gap;
+    const startY  = totalH / 2 - cellH / 2;
+
+    const stateOffsets = State.transform?.colOffsets;
+    const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numRows)
+      ? stateOffsets
+      : (esq.defaultOffsets || new Array(numRows).fill(0));
+
+    esq.rows.forEach((row, ri) => {
+      const n = row.cells.length;
+      const rowW = n * cellW + (n - 1) * gap;
+      const y = startY - ri * (cellH + gap);
+      let x = -rowW / 2 + (offsets[ri] || 0);
+      row.cells.forEach(cell => {
+        _addMesh(THREE, pivot,
+          { n: cell.n, ratio: 'H', opacity: cell.opacity ?? 1 },
+          x, y, cellW, cellH, p, getTexture);
+        x += cellW + gap;
+      });
+    });
+  }
+
+  function _buildVColumns(THREE, pivot, esq, p, getTexture) {
+    const gap     = (p.gap ?? 8) * 0.01;
+    const cellW   = CELL_H * 9 / 16;
+    const numCols = esq.cols.length;
+    const totalW  = numCols * cellW + (numCols - 1) * gap;
+    const startX  = -totalW / 2;
+
+    const stateOffsets = State.transform?.colOffsets;
+    const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numCols)
+      ? stateOffsets
+      : (esq.defaultOffsets || new Array(numCols).fill(0));
+
+    esq.cols.forEach((col, ci) => {
+      const xCol = startX + ci * (cellW + gap);
+      const nCells = col.cells.length;
+      const colH = nCells * CELL_H + (nCells - 1) * gap;
+      let cursorY = colH / 2 + (offsets[ci] || 0);
+      col.cells.forEach(cell => {
+        const centerY = cursorY - CELL_H / 2;
+        _addMesh(THREE, pivot,
+          { n: cell.n, ratio: 'V', opacity: cell.opacity ?? 1 },
+          xCol, centerY, cellW, CELL_H, p, getTexture);
+        cursorY -= CELL_H + gap;
+      });
+    });
+  }
+
+  function _buildFree(THREE, pivot, esq, p, getTexture) {
+    const gap  = (p.gap ?? 8) * 0.01;
+    const unit = CELL_H;
+    let maxX = 0, maxY = 0;
+    esq.cells.forEach(c => { maxX = Math.max(maxX, c.x + c.w); maxY = Math.max(maxY, c.y + c.h); });
+    const totalW = maxX * unit, totalH = maxY * unit;
+    const offX = -totalW / 2, topY = totalH / 2;
+    esq.cells.forEach(c => {
+      const w = c.w * unit - gap;
+      const h = c.h * unit - gap;
+      const left = offX + c.x * unit + gap / 2;
+      const top  = topY - c.y * unit - gap / 2;
+      _addMesh(THREE, pivot,
+        { n: c.n, ratio: c.r, opacity: 1 },
+        left, top - h / 2, w, h, p, getTexture);
+    });
+  }
+
   function _addMesh(THREE, pivot, slot, x, centerY, w, h, p, getTexture) {
+    const key = _exSkeletonId + ':' + _exSlotIndex;
+    _exSlotIndex++;
     const r   = ((p.radius ?? 12) / 1000) * CELL_H;
-    const geo = _makeRoundedRect(THREE, w, h, r);
-    const tex = getTexture(slot);
+    // Imagen efectiva: vinculada al contenedor (clave) o índice del esqueleto.
+    const bound  = (typeof State !== 'undefined' && State.containerImages && State.containerImages[key]);
+    const imgKey = bound ? key : slot.n;
+    const tex = getTexture({ n: imgKey, ratio: slot.ratio });
+    // "Cover" + ajuste de encuadre por contenedor (igual que el editor). Sólo
+    // en imágenes reales; los placeholders mantienen mapeo completo.
+    let coverUV = null;
+    if (tex.userData && tex.userData.real && tex.image) {
+      const iw = tex.image.width  || tex.image.naturalWidth;
+      const ih = tex.image.height || tex.image.naturalHeight;
+      if (iw && ih) coverUV = _coverUVAdjusted(w / h, iw / ih, key);
+    }
+    const geo = _makeRoundedRect(THREE, w, h, r, coverUV);
     const mat = new THREE.MeshBasicMaterial({
       map:         tex,
       side:        THREE.FrontSide,
@@ -443,7 +556,7 @@ const Export = (() => {
     pivot.add(mesh);
   }
 
-  function _makeRoundedRect(THREE, w, h, r) {
+  function _makeRoundedRect(THREE, w, h, r, coverUV) {
     r = Math.min(r, w / 2, h / 2);
     const shape = new THREE.Shape();
     const x = -w / 2, y = -h / 2;
@@ -460,12 +573,45 @@ const Export = (() => {
     const geo = new THREE.ShapeGeometry(shape, 4);
     const pos = geo.attributes.position;
     const uvs = new Float32Array(pos.count * 2);
+    const uMin = coverUV ? coverUV.uMin : 0;
+    const uMax = coverUV ? coverUV.uMax : 1;
+    const vMin = coverUV ? coverUV.vMin : 0;
+    const vMax = coverUV ? coverUV.vMax : 1;
     for (let i = 0; i < pos.count; i++) {
-      uvs[i * 2]     = (pos.getX(i) - x) / w;
-      uvs[i * 2 + 1] = (pos.getY(i) - y) / h;
+      const fx = (pos.getX(i) - x) / w;
+      const fy = (pos.getY(i) - y) / h;
+      uvs[i * 2]     = uMin + fx * (uMax - uMin);
+      uvs[i * 2 + 1] = vMin + fy * (vMax - vMin);
     }
     geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     return geo;
+  }
+
+  // Igual que mosaic-3d.js: recorta UV para cubrir el hueco sin deformar.
+  function _coverUV(holderAspect, imgAspect) {
+    let uFrac = 1, vFrac = 1;
+    if (imgAspect > holderAspect) {
+      uFrac = holderAspect / imgAspect;
+    } else {
+      vFrac = imgAspect / holderAspect;
+    }
+    const uMin = (1 - uFrac) / 2;
+    const vMin = (1 - vFrac) / 2;
+    return { uMin, uMax: uMin + uFrac, vMin, vMax: vMin + vFrac };
+  }
+
+  // Cover + ajuste de encuadre por contenedor (idéntico a mosaic-3d.js).
+  function _coverUVAdjusted(holderAspect, imgAspect, key) {
+    const base = _coverUV(holderAspect, imgAspect);
+    const adj  = (typeof State !== 'undefined' && State.imageAdjust) ? State.imageAdjust[key] : null;
+    if (!adj) return base;
+    let uFrac = (base.uMax - base.uMin) / Math.max(1, adj.scale || 1);
+    let vFrac = (base.vMax - base.vMin) / Math.max(1, adj.scale || 1);
+    let cu = 0.5 + (adj.dx || 0);
+    let cv = 0.5 + (adj.dy || 0);
+    cu = Math.min(Math.max(cu, uFrac / 2), 1 - uFrac / 2);
+    cv = Math.min(Math.max(cv, vFrac / 2), 1 - vFrac / 2);
+    return { uMin: cu - uFrac / 2, uMax: cu + uFrac / 2, vMin: cv - vFrac / 2, vMax: cv + vFrac / 2 };
   }
 
   // Placeholder visible cuando no hay imagen para un hueco.
@@ -536,6 +682,16 @@ const Export = (() => {
       img.onerror = () => { console.warn(`[Mosaiker] No se pudo cargar: ${src}`); resolve(null); };
       img.src = src;
     });
+  }
+
+  // Dibuja `img` cubriendo W×H (object-fit: cover, centrado).
+  function _drawCover(ctx, img, W, H) {
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return;
+    const scale = Math.max(W / iw, H / ih);
+    const dw = iw * scale, dh = ih * scale;
+    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
   }
 
   // Slug URL-friendly: lowercase, sin acentos, sólo a-z 0-9, hyphens medios

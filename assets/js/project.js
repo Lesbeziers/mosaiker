@@ -143,8 +143,26 @@ const Project = (() => {
     if (typeof Images !== 'undefined') Images.clear();
     _applyState(data);
 
+    // Revincula imágenes propias de contenedor buscándolas por su ruta /imagenes/bound.
+    const bound = data.boundImages || {};
+    for (const [key, storedPath] of Object.entries(bound)) {
+      const bf = files.find(f => f.webkitRelativePath.includes('/imagenes/' + storedPath));
+      if (!bf) { console.warn(`[Mosaiker] Imagen vinculada ausente: ${storedPath}`); continue; }
+      try { await Images.bindFileToContainer(bf, key); } catch (_) { delete State.containerImages[key]; }
+    }
+
+    // Imágenes de fondo por formato (buscadas por su ruta /imagenes/bg)
+    const bgMap = data.bgImages || {};
+    for (const [fid, storedPath] of Object.entries(bgMap)) {
+      const bf = files.find(f => f.webkitRelativePath.includes('/imagenes/' + storedPath));
+      if (bf && typeof Background !== 'undefined') Background.setImageFileFor(fid, bf);
+    }
+    if (typeof Background !== 'undefined') Background.update();
+
     if (imageFiles.length > 0 && typeof Images !== 'undefined') {
       await Images.loadFiles(imageFiles);
+    } else if (typeof Mosaic3D !== 'undefined') {
+      Mosaic3D.refreshTextures();
     }
 
     console.log(`[Mosaiker] Proyecto cargado desde carpeta: ${data.projectName} (${imageFiles.length}/${needed.size} imágenes)`);
@@ -179,9 +197,34 @@ const Project = (() => {
     if (typeof Images !== 'undefined') Images.clear();
     _applyState(data);
 
-    // Carga las imágenes (esto dispara un refresh final del mosaico)
+    // Reconstruye y revincula las imágenes propias de contenedor desde el ZIP.
+    const bound = data.boundImages || {};
+    for (const [key, storedPath] of Object.entries(bound)) {
+      const entry = zip.file('imagenes/' + storedPath);
+      if (!entry) { console.warn(`[Mosaiker] Imagen vinculada ausente en ZIP: ${storedPath}`); continue; }
+      const blob = await entry.async('blob');
+      const fname = storedPath.split('/').pop();
+      const f = new File([blob], fname, { type: blob.type || 'image/jpeg' });
+      try { await Images.bindFileToContainer(f, key); } catch (_) { delete State.containerImages[key]; }
+    }
+
+    // Reconstruye las imágenes de fondo por formato desde el ZIP
+    const bgMap = data.bgImages || {};
+    for (const [fid, storedPath] of Object.entries(bgMap)) {
+      const entry = zip.file('imagenes/' + storedPath);
+      if (!entry) { console.warn(`[Mosaiker] Imagen de fondo ausente en ZIP: ${storedPath}`); continue; }
+      const blob = await entry.async('blob');
+      const fname = storedPath.split('/').pop();
+      const f = new File([blob], fname, { type: blob.type || 'image/jpeg' });
+      if (typeof Background !== 'undefined') Background.setImageFileFor(fid, f);
+    }
+    if (typeof Background !== 'undefined') Background.update();
+
+    // Carga las imágenes por índice (esto dispara un refresh final del mosaico)
     if (files.length > 0 && typeof Images !== 'undefined') {
       await Images.loadFiles(files);
+    } else if (typeof Mosaic3D !== 'undefined') {
+      Mosaic3D.refreshTextures();
     }
 
     console.log(`[Mosaiker] Proyecto cargado: ${data.projectName} (${files.length} imágenes)`);
@@ -204,6 +247,11 @@ const Project = (() => {
     State.overlays          = { ...(data.overlays         || {}) };
     State.vignettes         = JSON.parse(JSON.stringify(data.vignettes || {}));
     State.mosaicOpacity     = { ...(data.mosaicOpacity    || {}) };
+    State.mosaicBlur        = { ...(data.mosaicBlur       || {}) };
+    State.backgrounds       = { ...(data.backgrounds      || {}) };
+    State.backgroundImages  = { ...(data.backgroundImages || {}) };
+    State.imageAdjust       = JSON.parse(JSON.stringify(data.imageAdjust || {}));
+    State.containerImages   = { ...(data.containerImages  || {}) };
     State.formatsOk         = { ...(data.formatsOk        || {}) };
     State.formatSnapshots   = { ...(data.formatSnapshots  || {}) };
     State.showImagePrefixes = !!data.showImagePrefixes;
@@ -360,6 +408,11 @@ const Project = (() => {
       overlays:        { ...State.overlays },
       vignettes:       JSON.parse(JSON.stringify(State.vignettes)),
       mosaicOpacity:   { ...State.mosaicOpacity },
+      mosaicBlur:      { ...State.mosaicBlur },
+      backgrounds:     { ...State.backgrounds },
+      backgroundImages:{ ...State.backgroundImages },
+      imageAdjust:     JSON.parse(JSON.stringify(State.imageAdjust || {})),
+      containerImages: { ...State.containerImages },
       formatsOk:       { ...State.formatsOk },
       formatSnapshots: { ...State.formatSnapshots },
       showImagePrefixes: !!State.showImagePrefixes,
@@ -393,12 +446,37 @@ const Project = (() => {
     const data      = _serializeState();
     const imgFolder = zip.folder('imagenes');
 
-    // Volcado de archivos binarios originales
+    // Volcado de archivos binarios originales (por índice)
     if (typeof Images !== 'undefined') {
       Images.getLoadedNumbers().forEach(n => {
         const file = Images.getOriginalFile(n);
         if (file) imgFolder.file(file.name, file);
       });
+
+      // Imágenes vinculadas a contenedores → subcarpeta /imagenes/bound con
+      // nombre único (clave del contenedor) para evitar colisiones de nombre.
+      const boundManifest = {};
+      Object.keys(State.containerImages || {}).forEach(key => {
+        const file = Images.getOriginalFile(key);
+        if (!file) return;
+        const stored = 'bound/' + key.replace(/[^a-z0-9]+/gi, '_') + '__' + file.name;
+        imgFolder.file(stored, file);
+        boundManifest[key] = stored;
+      });
+      data.boundImages = boundManifest;
+
+      // Imágenes de fondo por formato → subcarpeta /imagenes/bg
+      const bgManifest = {};
+      if (typeof Background !== 'undefined' && Background.getImageFile) {
+        Object.keys(State.backgroundImages || {}).forEach(fid => {
+          const file = Background.getImageFile(fid);
+          if (!file) return;
+          const stored = 'bg/' + fid.replace(/[^a-z0-9]+/gi, '_') + '__' + file.name;
+          imgFolder.file(stored, file);
+          bgManifest[fid] = stored;
+        });
+      }
+      data.bgImages = bgManifest;
     }
 
     zip.file(name + '.json', JSON.stringify(data, null, 2));

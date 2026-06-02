@@ -293,16 +293,31 @@ const UI = (() => {
     out.height = h;
     const ctx = out.getContext('2d');
 
-    // Fondo negro coherente con el del canvas-area
-    ctx.fillStyle = '#0e0e0e';
+    // Fondo del formato (color elegido en la bottom-bar; default #0e0e0e)
+    ctx.fillStyle = (typeof Background !== 'undefined') ? Background.get() : '#0e0e0e';
     ctx.fillRect(0, 0, w, h);
 
-    // 1) Mosaico WebGL — respeta la opacidad del mosaico del formato
+    // Imagen de fondo (cover), por detrás del mosaico
+    if (typeof Background !== 'undefined' && Background.hasImage && Background.hasImage()) {
+      const url = Background.getImageUrl();
+      if (url) {
+        const bgImg = await new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = url; });
+        if (bgImg) {
+          const iw = bgImg.naturalWidth || bgImg.width, ih = bgImg.naturalHeight || bgImg.height;
+          if (iw && ih) { const s = Math.max(w / iw, h / ih); ctx.drawImage(bgImg, (w - iw * s) / 2, (h - ih * s) / 2, iw * s, ih * s); }
+        }
+      }
+    }
+
+    // 1) Mosaico WebGL — respeta la opacidad y el desenfoque del formato
     const webGL = lienzo.querySelector('.mosaic-canvas');
     if (webGL) {
-      const mosOp = (typeof MosaicOpacity !== 'undefined') ? MosaicOpacity.get() : 1;
+      const mosOp   = (typeof MosaicOpacity !== 'undefined') ? MosaicOpacity.get() : 1;
+      const blurPx  = (typeof MosaicBlur    !== 'undefined') ? MosaicBlur.blurPxFor(h) : 0;
       ctx.globalAlpha = mosOp;
+      ctx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
       ctx.drawImage(webGL, 0, 0, w, h);
+      ctx.filter = 'none';
       ctx.globalAlpha = 1;
     }
 
@@ -389,8 +404,13 @@ const UI = (() => {
       return;
     }
 
-    const numCols = (esq.type === 'columns' && esq.cols) ? esq.cols.length : 0;
-    if (numCols === 0) {
+    // 'columns' → un slider (vertical) por columna; 'rows' → un slider
+    // (horizontal) por fila. En ambos casos el offset vive en colOffsets.
+    const isRows = esq.type === 'rows';
+    const numLanes = isRows
+      ? (esq.rows ? esq.rows.length : 0)
+      : ((esq.type === 'columns' || esq.type === 'vcolumns') && esq.cols ? esq.cols.length : 0);
+    if (numLanes === 0) {
       block.style.display = 'none';
       row.innerHTML = '';
       return;
@@ -398,12 +418,15 @@ const UI = (() => {
 
     block.style.display = 'block';
     row.innerHTML = '';
+    row.classList.toggle('rows-mode', isRows);
+    const titleEl = document.getElementById('col-offsets-title');
+    if (titleEl) titleEl.textContent = isRows ? 'Offset filas' : 'Offset columnas';
 
     const offsets = (State.transform && State.transform.colOffsets) || [];
 
-    for (let ci = 0; ci < numCols; ci++) {
+    for (let ci = 0; ci < numLanes; ci++) {
       const wrap = document.createElement('div');
-      wrap.className = 'col-offset';
+      wrap.className = 'col-offset' + (isRows ? ' rows-mode' : '');
 
       const sliderWrap = document.createElement('div');
       sliderWrap.className = 'col-offset-slider-wrap';
@@ -414,7 +437,7 @@ const UI = (() => {
       slider.max   = 3;
       slider.step  = 0.1;
       slider.value = offsets[ci] !== undefined ? offsets[ci] : 0;
-      slider.className = 'col-offset-slider';
+      slider.className = 'col-offset-slider' + (isRows ? ' rows-mode' : '');
       slider.dataset.col = ci;
 
       slider.addEventListener('input', () => {
@@ -423,12 +446,14 @@ const UI = (() => {
       });
 
       sliderWrap.appendChild(slider);
-      wrap.appendChild(sliderWrap);
 
       const label = document.createElement('div');
       label.className = 'col-offset-label';
-      label.textContent = `Col ${ci + 1}`;
-      wrap.appendChild(label);
+      label.textContent = isRows ? `Fila ${ci + 1}` : `Col ${ci + 1}`;
+
+      // En filas, etiqueta a la izquierda del slider; en columnas, debajo.
+      if (isRows) { wrap.appendChild(label); wrap.appendChild(sliderWrap); }
+      else        { wrap.appendChild(sliderWrap); wrap.appendChild(label); }
 
       row.appendChild(wrap);
     }
