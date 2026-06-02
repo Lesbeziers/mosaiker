@@ -100,6 +100,7 @@ const UI = (() => {
         State.view = b.id === 'btn-editor' ? 'editor' : 'all';
         document.body.classList.toggle('view-all', State.view === 'all');
         if (State.view === 'all') renderVerTodas();
+        else _recenterAfterLayout();   // volver a editor → re-centrar tras la transición
       });
     });
   }
@@ -111,6 +112,30 @@ const UI = (() => {
     if (editorBtn) editorBtn.classList.add('active');
     State.view = 'editor';
     document.body.classList.remove('view-all');
+    _recenterAfterLayout();
+  }
+
+  // Al volver a editor desde VER TODAS, el sidebar pasa de width:0 a su ancho
+  // con una transición (~260ms). Si recolocamos el lienzo antes de que termine,
+  // canvas-area se mide demasiado ancho y el lienzo queda ladeado a la derecha.
+  // Re-centramos cuando la transición de anchura del sidebar acaba (con fallback).
+  function _recenterAfterLayout() {
+    const sidebar = document.getElementById('sidebar');
+    const doFit = () => {
+      if (typeof Canvas    !== 'undefined') Canvas.render();      // reposiciona/redimensiona lienzo
+      if (typeof Mosaic3D  !== 'undefined') Mosaic3D.fitToLienzo(); // re-encuadra y centra
+    };
+    if (!sidebar) { setTimeout(doFit, 320); return; }
+    let done = false;
+    const onEnd = (e) => {
+      if (e.propertyName !== 'width') return;
+      done = true;
+      sidebar.removeEventListener('transitionend', onEnd);
+      doFit();
+    };
+    sidebar.addEventListener('transitionend', onEnd);
+    // Fallback por si no se dispara transitionend (sin transición, reduced-motion…)
+    setTimeout(() => { if (!done) { sidebar.removeEventListener('transitionend', onEnd); doFit(); } }, 360);
   }
 
   function _bindTopBarActions() {
