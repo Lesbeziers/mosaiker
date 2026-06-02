@@ -61,6 +61,8 @@ const Mosaic3D = (() => {
   let _highlightKey = null;  // contenedor con foco amarillo (interacción) o null
   let _capturing    = false; // true durante el snapshot de VER TODAS: oculta
                              // ayudas de edición (índices + resalte amarillo)
+  let _dropHintKey  = null;  // contenedor resaltado al arrastrar un archivo encima
+  let _pulseRAF     = 0;     // bucle de animación del parpadeo de la pista de drop
 
   // ── INICIALIZACIÓN ───────────────────────────────────────
 
@@ -606,15 +608,20 @@ const Mosaic3D = (() => {
     const slotKey = (activeSkeleton ? activeSkeleton.id : '?') + ':' + _slotIndex;
     _slotIndex++;
 
-    // Foco amarillo del contenedor con el que se interactúa: rectángulo algo
-    // mayor por detrás → se ve como un borde alrededor del tile.
-    if (slotKey === _highlightKey && !_capturing) {
+    // Foco amarillo del contenedor: rectángulo algo mayor por detrás → borde.
+    // Si hay una "pista de drop" activa (arrastrando un archivo), tiene
+    // prioridad y se marca para animarla (parpadeo suave); si no, es el foco
+    // estático de la carátula con la que se interactúa.
+    const isDropHint = !_capturing && _dropHintKey && slotKey === _dropHintKey;
+    const isFocus    = !_capturing && !_dropHintKey && slotKey === _highlightKey;
+    if (isDropHint || isFocus) {
       const hb   = _borderWorld(3);
       const hGeo = _makeRoundedRect(w + 2 * hb, h + 2 * hb, r + hb, null);
       const hMat = new THREE.MeshBasicMaterial({ color: 0xf0a500, side: THREE.FrontSide, transparent: true, opacity: 1 });
       const hMesh = new THREE.Mesh(hGeo, hMat);
       hMesh.position.set(x + w / 2, centerY, -0.0015);
       hMesh.renderOrder = 0;
+      if (isDropHint) hMesh.userData.isDropHint = true;
       pivot.add(hMesh);
     }
 
@@ -913,6 +920,41 @@ const Mosaic3D = (() => {
     return found;
   }
 
+  // Centro del contenedor (key) en px de ventana, para colocar overlays DOM
+  // (p.ej. el spinner de carga). Null si no se encuentra.
+  function getContainerScreen(key) {
+    const mesh = _meshByKey(key);
+    if (!mesh || !camera || !renderer) return null;
+    const v = new THREE.Vector3();
+    mesh.getWorldPosition(v);
+    v.project(camera);
+    const rect = renderer.domElement.getBoundingClientRect();
+    return {
+      x: rect.left + (v.x * 0.5 + 0.5) * rect.width,
+      y: rect.top  + (-v.y * 0.5 + 0.5) * rect.height,
+    };
+  }
+
+  // Centros en pantalla de TODOS los contenedores que ahora mismo muestran el
+  // índice `n` (y no tienen imagen propia vinculada, que tendría prioridad).
+  // Sirve para poner spinners al recargar por índice desde el panel.
+  function getIndexScreens(n) {
+    const out = [];
+    if (!camera || !renderer) return out;
+    const rect = renderer.domElement.getBoundingClientRect();
+    const v = new THREE.Vector3();
+    pivot.children.forEach(o => {
+      if (o.userData && o.userData.slot && o.userData.slot.imgKey === n) {
+        o.getWorldPosition(v); v.project(camera);
+        out.push({
+          x: rect.left + (v.x * 0.5 + 0.5) * rect.width,
+          y: rect.top  + (-v.y * 0.5 + 0.5) * rect.height,
+        });
+      }
+    });
+    return out;
+  }
+
   function _adjFor(key) {
     if (!State.imageAdjust) State.imageAdjust = {};
     if (!State.imageAdjust[key]) State.imageAdjust[key] = { dx: 0, dy: 0, scale: 1 };
@@ -925,6 +967,38 @@ const Mosaic3D = (() => {
     if (_highlightKey === key) return;
     _highlightKey = key;
     rebuild();
+  }
+
+  // Pista de "drop": al arrastrar un archivo sobre un contenedor, resalta su
+  // marco amarillo con un parpadeo suave. key=null la quita. Sólo reconstruye
+  // cuando cambia el contenedor objetivo (el parpadeo va por su propio bucle).
+  function setDropHint(key) {
+    if (_dropHintKey === key) return;
+    _dropHintKey = key;
+    rebuild();
+    if (key) _startPulse(); else _stopPulse();
+  }
+
+  function clearDropHint() { setDropHint(null); }
+
+  function _startPulse() {
+    if (_pulseRAF) return;
+    const loop = () => {
+      // Busca el marco de la pista y oscila su opacidad (suave, ~1.1s).
+      let hint = null;
+      pivot.children.forEach(o => { if (o.userData && o.userData.isDropHint) hint = o; });
+      if (hint && hint.material) {
+        const t = (typeof performance !== 'undefined' ? performance.now() : 0);
+        hint.material.opacity = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t / 1100 * Math.PI * 2));
+      }
+      render();
+      _pulseRAF = requestAnimationFrame(loop);
+    };
+    _pulseRAF = requestAnimationFrame(loop);
+  }
+
+  function _stopPulse() {
+    if (_pulseRAF) { cancelAnimationFrame(_pulseRAF); _pulseRAF = 0; }
   }
 
   // Render "limpio" para capturar el snapshot de VER TODAS: oculta los índices
@@ -986,5 +1060,6 @@ const Mosaic3D = (() => {
     init, setSkeleton, setFormat, setTransform, setColOffset, resize, render, rebuild,
     fitToLienzo, refreshTextures, setPrefixesVisible, getTHREE,
     pickKeyAt, panByScreen, scaleByFactor, setHighlight, beginCapture, endCapture,
+    setDropHint, clearDropHint, getContainerScreen, getIndexScreens,
   };
 })();

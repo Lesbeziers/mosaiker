@@ -430,6 +430,22 @@ const Skeletons = (() => {
     _updateButtonLabel(getActive());
   }
 
+  // Aviso "Cargando imágenes" en la parte inferior del viewport (no la bottom
+  // bar). Se muestra al elegir mosaico mientras se construye con las imágenes.
+  function _showLoading(msg) {
+    _hideLoading();
+    const el = document.createElement('div');
+    el.id = 'mosaic-loading';
+    el.className = 'loading-toast';
+    el.innerHTML = '<span class="loading-toast-spinner"></span>' +
+                   '<span>' + (msg || 'Cargando imágenes…') + '</span>';
+    (document.getElementById('canvas-area') || document.body).appendChild(el);
+  }
+
+  function _hideLoading() {
+    document.getElementById('mosaic-loading')?.remove();
+  }
+
   // Orden de presentación en el selector (independiente del orden de
   // definición del objeto). Los ids no listados se añaden al final.
   const ORDER = ['filas', 'verticales', 'clasico', 'columnas', 'frontal', 'horizontal', 'horizontal-sello', 'fantasia'];
@@ -562,7 +578,18 @@ const Skeletons = (() => {
       card.appendChild(thumb);
       card.appendChild(count);
       card.appendChild(breakdown);
-      card.addEventListener('click', () => { setActive(esq.id); _close(); });
+      card.addEventListener('click', () => {
+        _close();                          // la modal desaparece YA
+        // Construir el mosaico con muchas imágenes (subir texturas a GPU) es
+        // síncrono y bloquea el repintado. Mostramos "Cargando imágenes" abajo
+        // del viewport y diferimos el setActive para que el cierre se pinte.
+        const hasImages = (typeof Images !== 'undefined') && Images.getLoadedNumbers().length > 0;
+        if (hasImages) _showLoading();
+        setTimeout(() => {
+          setActive(esq.id);
+          if (hasImages) setTimeout(_hideLoading, 0);
+        }, hasImages ? 50 : 0);
+      });
       grid.appendChild(card);
     });
 

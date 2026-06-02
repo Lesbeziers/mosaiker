@@ -20,6 +20,7 @@ const ImageAdjust = (() => {
     lienzo.addEventListener('wheel', _onWheel, { passive: false });
     lienzo.addEventListener('dragover', _onDragOver);
     lienzo.addEventListener('drop', _onDrop);
+    lienzo.addEventListener('dragleave', e => { if (!lienzo.contains(e.relatedTarget)) _clearDropHint(); });
     // Botón derecho arrastrando = zoom (Wacom: botón del lápiz). Evita el menú.
     lienzo.addEventListener('contextmenu', e => { if (State.view === 'editor') e.preventDefault(); });
   }
@@ -75,17 +76,31 @@ const ImageAdjust = (() => {
 
   // ── ARRASTRAR-SOLTAR IMAGEN SOBRE UN HUECO ────────────────
 
+  let _hintTimer = 0;
+
   function _onDragOver(e) {
-    if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-    }
+    if (!(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files'))) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (State.view !== 'editor' || typeof Mosaic3D === 'undefined') return;
+    // Resalta (con parpadeo) el contenedor sobre el que caería la imagen.
+    const hit = Mosaic3D.pickKeyAt(e.clientX, e.clientY);
+    Mosaic3D.setDropHint(hit ? hit.key : null);
+    // Watchdog: si deja de haber dragover (salió o soltó), quita la pista.
+    if (_hintTimer) clearTimeout(_hintTimer);
+    _hintTimer = setTimeout(() => { if (typeof Mosaic3D !== 'undefined') Mosaic3D.clearDropHint(); }, 250);
+  }
+
+  function _clearDropHint() {
+    if (_hintTimer) { clearTimeout(_hintTimer); _hintTimer = 0; }
+    if (typeof Mosaic3D !== 'undefined' && Mosaic3D.clearDropHint) Mosaic3D.clearDropHint();
   }
 
   function _onDrop(e) {
     const files = e.dataTransfer && e.dataTransfer.files;
     if (!files || !files.length) return;
     e.preventDefault();
+    _clearDropHint();
     if (State.view !== 'editor' || typeof Mosaic3D === 'undefined') return;
 
     const file = Array.from(files).find(f => /^image\//.test(f.type));
@@ -96,12 +111,27 @@ const ImageAdjust = (() => {
     if (hit && file && typeof Images !== 'undefined' && Images.bindFileToContainer) {
       State.containerImages[hit.key] = file.name;
       delete State.imageAdjust[hit.key];      // imagen nueva → cover fresco
+      const spin = _showSpinner(hit.key);     // feedback mientras decodifica (2-4s)
       Images.bindFileToContainer(file, hit.key)
         .then(() => { if (typeof Mosaic3D !== 'undefined') Mosaic3D.refreshTextures(); })
-        .catch(() => { delete State.containerImages[hit.key]; });
+        .catch(() => { delete State.containerImages[hit.key]; })
+        .finally(() => { if (spin) spin.remove(); });
     } else if (typeof Images !== 'undefined') {
       Images.loadFiles(files);
     }
+  }
+
+  // Spinner de carga centrado sobre el contenedor mientras llega la imagen.
+  function _showSpinner(key) {
+    if (typeof Mosaic3D === 'undefined' || !Mosaic3D.getContainerScreen) return null;
+    const scr = Mosaic3D.getContainerScreen(key);
+    if (!scr) return null;
+    const el = document.createElement('div');
+    el.className = 'drop-spinner';
+    el.style.left = scr.x + 'px';
+    el.style.top  = scr.y + 'px';
+    document.body.appendChild(el);
+    return el;
   }
 
   return { init };

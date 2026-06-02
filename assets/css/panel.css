@@ -2,6 +2,49 @@
    PANEL.CSS — Zona de funcionalidades (panel izquierdo)
    ============================================================ */
 
+/* ── SPINNER DE CARGA AL SOLTAR IMAGEN SOBRE UN HUECO ─────── */
+.drop-spinner {
+  position: fixed;
+  width: 34px; height: 34px;
+  margin: -17px 0 0 -17px;            /* centrado sobre (left, top) */
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--col-yellow);
+  border-radius: 50%;
+  animation: drop-spin 0.7s linear infinite;
+  z-index: 6000;
+  pointer-events: none;
+}
+@keyframes drop-spin { to { transform: rotate(360deg); } }
+
+/* ── AVISO "CARGANDO IMÁGENES" (centro del viewport) ────────── */
+.loading-toast {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(20, 20, 20, 0.92);
+  border: 1px solid var(--col-border);
+  border-radius: 999px;
+  padding: 14px 26px;
+  font-family: var(--font);
+  font-size: 17px; font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--col-text);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  z-index: 50;
+  pointer-events: none;
+}
+.loading-toast-spinner {
+  width: 20px; height: 20px;
+  border: 2.5px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--col-yellow);
+  border-radius: 50%;
+  animation: drop-spin 0.7s linear infinite;
+}
+
 /* ── CONTENEDOR INTERIOR DEL PANEL ───────────────────────── */
 #panel-inner {
   padding: 14px 12px;

@@ -162,13 +162,43 @@ const UI = (() => {
     zone.addEventListener('drop', e => {
       e.preventDefault();
       zone.classList.remove('dragover');
-      if (typeof Images !== 'undefined') Images.loadFiles(e.dataTransfer.files);
+      _loadFilesWithSpinners(e.dataTransfer.files);
     });
 
     input.addEventListener('change', e => {
-      if (typeof Images !== 'undefined') Images.loadFiles(e.target.files);
+      _loadFilesWithSpinners(e.target.files);
       input.value = '';
     });
+  }
+
+  // Carga por índice desde el panel mostrando un spinner sobre los contenedores
+  // que se van a actualizar (los que ahora muestran ese índice), hasta que la
+  // imagen esté decodificada.
+  function _loadFilesWithSpinners(files) {
+    if (typeof Images === 'undefined') return;
+    const spinners = _spinnersForFiles(files);
+    Promise.resolve(Images.loadFiles(files)).finally(() => spinners.forEach(s => s.remove()));
+  }
+
+  function _spinnersForFiles(files) {
+    const els = [];
+    if (typeof Mosaic3D === 'undefined' || !Mosaic3D.getIndexScreens) return els;
+    const indices = new Set();
+    Array.from(files || []).forEach(f => {
+      const m = f.name && f.name.match(/^(\d+)/);
+      if (m) indices.add(parseInt(m[1], 10));
+    });
+    indices.forEach(n => {
+      Mosaic3D.getIndexScreens(n).forEach(scr => {
+        const el = document.createElement('div');
+        el.className = 'drop-spinner';
+        el.style.left = scr.x + 'px';
+        el.style.top  = scr.y + 'px';
+        document.body.appendChild(el);
+        els.push(el);
+      });
+    });
+    return els;
   }
 
   function _bindShowPrefixesToggle() {
