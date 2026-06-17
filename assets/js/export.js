@@ -432,15 +432,18 @@ const Export = (() => {
     // dejaría bordes oscuros indeseados.
     const vig = transparent ? null : State.vignettes?.[format.id];
     if (vig && vig.type) {
-      const vigSrc = _findVignetteSrc(format, vig.type);
-      if (vigSrc) {
-        const vigImg = await _loadImage(vigSrc);
-        if (vigImg) {
-          ctx.globalAlpha = (vig.opacity != null) ? vig.opacity : 1;
-          ctx.drawImage(vigImg, 0, 0, W, H);
-          ctx.globalAlpha = 1;
+      ctx.globalAlpha = (vig.opacity != null) ? vig.opacity : 1;
+      if (format.custom && typeof Vignettes !== 'undefined' && Vignettes.generate) {
+        // Formato custom: viñeta generada al vuelo a resolución real.
+        ctx.drawImage(Vignettes.generate(W, H, vig.type), 0, 0, W, H);
+      } else {
+        const vigSrc = _findVignetteSrc(format, vig.type);
+        if (vigSrc) {
+          const vigImg = await _loadImage(vigSrc);
+          if (vigImg) ctx.drawImage(vigImg, 0, 0, W, H);
         }
       }
+      ctx.globalAlpha = 1;
     }
 
     // Codifica: PNG (sin pérdida, conserva alpha) o JPG a máxima calidad

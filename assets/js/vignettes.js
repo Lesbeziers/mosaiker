@@ -60,7 +60,13 @@ const Vignettes = (() => {
   function _getAvailable(fmt) {
     if (!fmt) return [];
     const key = `${fmt.width}x${fmt.height}`;
-    return VIGNETTES[key] || [];
+    if (VIGNETTES[key]) return VIGNETTES[key];
+    // Sin catálogo PNG (p.ej. formato custom): viñetas generadas al vuelo.
+    return [
+      { id: 'ventana',    label: 'Ventana',    generated: true },
+      { id: 'horizontal', label: 'Horizontal', generated: true },
+      { id: 'vertical',   label: 'Vertical',   generated: true },
+    ];
   }
 
   // Devuelve (y crea si hace falta) el estado de viñeta para un formato
@@ -133,7 +139,7 @@ const Vignettes = (() => {
 
     const img = document.createElement('img');
     img.className = 'lienzo-vignette';
-    img.src = vig.src;
+    img.src = vig.generated ? _genOverlaySrc(fmt, vig.id) : vig.src;
     img.alt = vig.label;
     img.style.opacity = (st.opacity ?? 1).toString();
     lienzo.appendChild(img);
@@ -183,5 +189,49 @@ const Vignettes = (() => {
     });
   }
 
-  return { init, update };
+  // ── GENERADOR DE VIÑETAS AL VUELO ─────────────────────────
+  // Negro con alpha, a w×h, para el tipo dado. Calibrado muestreando las
+  // viñetas reales (perfiles de alpha): ventana = radial elíptico suave
+  // (máx ~0.75, sin negro puro), horizontal/vertical = bandas en los bordes.
+  // Se adapta a cualquier proporción sin deformar (clave para el custom).
+  function generate(w, h, type) {
+    const c = document.createElement('canvas');
+    c.width  = Math.max(1, Math.round(w));
+    c.height = Math.max(1, Math.round(h));
+    const cx = c.getContext('2d');
+    const rgba = a => `rgba(0,0,0,${a})`;
+
+    if (type === 'horizontal') {
+      const g = cx.createLinearGradient(0, 0, c.width, 0);
+      [[0,0.95],[0.10,0.15],[0.18,0],[0.82,0],[0.90,0.15],[1,0.95]]
+        .forEach(([o,a]) => g.addColorStop(o, rgba(a)));
+      cx.fillStyle = g; cx.fillRect(0, 0, c.width, c.height);
+    } else if (type === 'vertical') {
+      const g = cx.createLinearGradient(0, 0, 0, c.height);
+      [[0,1],[0.10,0.89],[0.20,0.53],[0.30,0.12],[0.42,0],[0.58,0],[0.70,0.12],[0.80,0.53],[0.90,0.89],[1,1]]
+        .forEach(([o,a]) => g.addColorStop(o, rgba(a)));
+      cx.fillStyle = g; cx.fillRect(0, 0, c.width, c.height);
+    } else { // ventana: radial elíptico suave (proporcional al lienzo)
+      cx.save();
+      cx.translate(c.width / 2, c.height / 2);
+      cx.scale(c.width, c.height);                     // espacio unidad → elipse
+      const g = cx.createRadialGradient(0, 0, 0, 0, 0, 0.5);
+      [[0,0],[0.55,0],[0.8,0.14],[1,0.75]]
+        .forEach(([o,a]) => g.addColorStop(o, rgba(a)));
+      cx.fillStyle = g; cx.fillRect(-0.5, -0.5, 1, 1);
+      cx.restore();
+    }
+    return c;
+  }
+
+  // dataURL para el overlay del editor (capado a la proporción del formato).
+  function _genOverlaySrc(fmt, type) {
+    const cap = 1400;
+    let w = fmt.width, h = fmt.height;
+    const m = Math.max(w, h);
+    if (m > cap) { const s = cap / m; w = Math.round(w * s); h = Math.round(h * s); }
+    return generate(w, h, type).toDataURL('image/png');
+  }
+
+  return { init, update, generate };
 })();
