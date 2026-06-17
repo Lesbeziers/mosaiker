@@ -90,23 +90,29 @@ const Export = (() => {
       display:flex;flex-direction:column;gap:3px;
     `;
 
+    let mode = 'jpg'; // 'jpg' | 'png' | 'both'
+    const extsForMode = () => mode === 'both' ? ['jpg', 'png'] : mode === 'png' ? ['png'] : ['jpg'];
+
     const renderList = () => {
       list.innerHTML = '';
       const base = _slug(nameInput.value) || 'sin-nombre';
       okIds.forEach(id => {
         const fmt = Formats.getById(id);
         if (!fmt) return;
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;';
-        const nameEl = document.createElement('span');
-        nameEl.style.cssText = 'font-family:var(--font);font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-        nameEl.textContent = `${base}-${_slug(fmt.name)}.jpg`;
-        const sizeEl = document.createElement('span');
-        sizeEl.style.cssText = 'font-family:var(--font);font-size:10px;color:#444;flex-shrink:0;';
-        sizeEl.textContent = `${fmt.width}×${fmt.height}`;
-        row.appendChild(nameEl);
-        row.appendChild(sizeEl);
-        list.appendChild(row);
+        extsForMode().forEach(ext => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;';
+          const nameEl = document.createElement('span');
+          nameEl.style.cssText = 'font-family:var(--font);font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+          nameEl.textContent = `${base}-${_slug(fmt.name)}.${ext}`;
+          const tag = ext === 'png' ? ' · sin fondo' : '';
+          const sizeEl = document.createElement('span');
+          sizeEl.style.cssText = 'font-family:var(--font);font-size:10px;color:#444;flex-shrink:0;';
+          sizeEl.textContent = `${fmt.width}×${fmt.height}${tag}`;
+          row.appendChild(nameEl);
+          row.appendChild(sizeEl);
+          list.appendChild(row);
+        });
       });
     };
     renderList();
@@ -114,6 +120,46 @@ const Export = (() => {
     nameInput.addEventListener('input', () => {
       slugPreview.textContent = '→ ' + (_slug(nameInput.value) || 'sin-nombre');
       renderList();
+    });
+
+    // Selector de formato de salida (segmentado): JPG / PNG / AMBOS
+    const formatLabel = document.createElement('div');
+    formatLabel.className = 'modal-label';
+    formatLabel.style.marginTop = '4px';
+    formatLabel.textContent = 'Formato de salida';
+
+    const formatRow = document.createElement('div');
+    formatRow.style.cssText = 'display:flex;gap:6px;';
+    const MODES = [
+      { id: 'jpg',  label: 'JPG',   hint: 'con fondo' },
+      { id: 'png',  label: 'PNG',   hint: 'sin fondo' },
+      { id: 'both', label: 'AMBOS', hint: 'jpg + png' },
+    ];
+    const modeBtns = {};
+    const styleModeBtn = (b, active) => {
+      b.style.cssText = `
+        flex:1;height:34px;border-radius:2px;cursor:pointer;
+        font-family:var(--font);font-size:11px;font-weight:700;
+        letter-spacing:0.06em;text-transform:uppercase;
+        transition:background 0.12s,border-color 0.12s,color 0.12s;
+        ${active
+          ? 'background:var(--col-yellow);border:1px solid var(--col-yellow);color:#000;'
+          : 'background:#2a2a2a;border:1px solid #3a3a3a;color:var(--col-text-muted);'}
+      `;
+    };
+    const setMode = (m) => {
+      mode = m;
+      Object.entries(modeBtns).forEach(([id, b]) => styleModeBtn(b, id === m));
+      renderList();
+    };
+    MODES.forEach(m => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.innerHTML = `${m.label}<span style="display:block;font-size:8px;font-weight:400;letter-spacing:0.03em;opacity:0.85;text-transform:none;">${m.hint}</span>`;
+      modeBtns[m.id] = b;
+      styleModeBtn(b, m.id === 'jpg');
+      b.addEventListener('click', () => setMode(m.id));
+      formatRow.appendChild(b);
     });
 
     const btnRow = document.createElement('div');
@@ -139,7 +185,7 @@ const Export = (() => {
     btnExport.addEventListener('click', async () => {
       const base = _slug(nameInput.value) || 'sin-nombre';
       overlay.remove();
-      await _doExport(base, okIds);
+      await _doExport(base, okIds, mode);
     });
 
     nameInput.addEventListener('keydown', e => {
@@ -153,6 +199,8 @@ const Export = (() => {
     body.appendChild(nameLabel);
     body.appendChild(nameInput);
     body.appendChild(slugPreview);
+    body.appendChild(formatLabel);
+    body.appendChild(formatRow);
     body.appendChild(listLabel);
     body.appendChild(list);
     body.appendChild(btnRow);
@@ -166,7 +214,7 @@ const Export = (() => {
 
   // ── EXPORT PIPELINE ───────────────────────────────────────
 
-  async function _doExport(baseName, okIds) {
+  async function _doExport(baseName, okIds, mode = 'jpg') {
     if (typeof JSZip === 'undefined') {
       alert('JSZip no está cargado.');
       return;
@@ -176,7 +224,15 @@ const Export = (() => {
       alert('Three.js no está cargado todavía. Inténtalo de nuevo en unos segundos.');
       return;
     }
-    const progress = _showProgress(okIds.length + 1); // +1 por la pre-carga
+    // Variantes a generar por formato según el modo:
+    //   jpg  → JPG con fondo · png → PNG sin fondo · both → ambos
+    const variants = mode === 'both'
+      ? [{ transparent: false, ext: 'jpg' }, { transparent: true, ext: 'png' }]
+      : mode === 'png'
+        ? [{ transparent: true, ext: 'png' }]
+        : [{ transparent: false, ext: 'jpg' }];
+    const totalRenders = okIds.length * variants.length;
+    const progress = _showProgress(totalRenders + 1); // +1 por la pre-carga
     progress.update(0, 'Decodificando imágenes a resolución completa…');
 
     // Pre-carga las imágenes originales a resolución completa una sola vez,
@@ -213,29 +269,31 @@ const Export = (() => {
     let exported = 0;
     const warnings = [];
 
-    for (let i = 0; i < okIds.length; i++) {
-      const id  = okIds[i];
+    let step = 0;
+    for (const id of okIds) {
       const fmt = Formats.getById(id);
       if (!fmt) continue;
 
-      progress.update(i + 1, fmt.name);
-
-      try {
-        const blob = await _renderFormat(THREE, fmt, fullBitmaps);
-        if (!blob) continue;
-        const filename = `${baseName}-${_slug(fmt.name)}.jpg`;
-        zip.file(filename, await blob.arrayBuffer());
-        exported++;
-      } catch (err) {
-        console.error(`[Mosaiker] Error exportando ${fmt.name}:`, err);
-        warnings.push(`${fmt.name}: ${err.message || err}`);
+      for (const v of variants) {
+        step++;
+        progress.update(step, fmt.name + (v.transparent ? ' · PNG' : ''));
+        try {
+          const blob = await _renderFormat(THREE, fmt, fullBitmaps, { transparent: v.transparent });
+          if (!blob) continue;
+          const filename = `${baseName}-${_slug(fmt.name)}.${v.ext}`;
+          zip.file(filename, await blob.arrayBuffer());
+          exported++;
+        } catch (err) {
+          console.error(`[Mosaiker] Error exportando ${fmt.name} (${v.ext}):`, err);
+          warnings.push(`${fmt.name} (${v.ext}): ${err.message || err}`);
+        }
       }
     }
 
     // Liberar bitmaps (siempre, aunque fallen algunos formatos)
     Object.values(fullBitmaps).forEach(b => b.close && b.close());
 
-    progress.update(okIds.length + 1, 'Empaquetando ZIP…');
+    progress.update(totalRenders + 1, 'Empaquetando ZIP…');
     const zipBlob = await zip.generateAsync({
       type: 'blob', compression: 'DEFLATE',
       compressionOptions: { level: 6 },
@@ -256,7 +314,8 @@ const Export = (() => {
 
   // ── RENDER DE UN FORMATO ──────────────────────────────────
 
-  async function _renderFormat(THREE, format, fullBitmaps) {
+  async function _renderFormat(THREE, format, fullBitmaps, opts = {}) {
+    const transparent = !!opts.transparent; // PNG sin fondo
     const W = format.width;
     const H = format.height;
     // Composición de ESTE formato: su mosaico, transform, encuadre y sustituciones.
@@ -340,16 +399,20 @@ const Export = (() => {
     out.height = H;
     const ctx  = out.getContext('2d');
 
-    // Fondo del lienzo (color elegido por formato; default #0e0e0e)
-    ctx.fillStyle = (typeof Background !== 'undefined') ? Background.get(format.id) : '#0e0e0e';
-    ctx.fillRect(0, 0, W, H);
+    // Fondo (color + imagen). En modo transparente (PNG) se omite por completo,
+    // dejando el canvas 2D transparente bajo el mosaico.
+    if (!transparent) {
+      // Fondo del lienzo (color elegido por formato; default #0e0e0e)
+      ctx.fillStyle = (typeof Background !== 'undefined') ? Background.get(format.id) : '#0e0e0e';
+      ctx.fillRect(0, 0, W, H);
 
-    // Imagen de fondo del formato (cover), por detrás del mosaico
-    if (typeof Background !== 'undefined' && Background.hasImage && Background.hasImage(format.id)) {
-      const bgUrl = Background.getImageUrl(format.id);
-      if (bgUrl) {
-        const bgImg = await _loadImage(bgUrl);
-        if (bgImg) _drawCover(ctx, bgImg, W, H);
+      // Imagen de fondo del formato (cover), por detrás del mosaico
+      if (typeof Background !== 'undefined' && Background.hasImage && Background.hasImage(format.id)) {
+        const bgUrl = Background.getImageUrl(format.id);
+        if (bgUrl) {
+          const bgImg = await _loadImage(bgUrl);
+          if (bgImg) _drawCover(ctx, bgImg, W, H);
+        }
       }
     }
 
@@ -364,8 +427,10 @@ const Export = (() => {
     ctx.filter = 'none';
     ctx.globalAlpha = 1;
 
-    // Viñeta (si el formato la tiene activa)
-    const vig = State.vignettes?.[format.id];
+    // Viñeta (si el formato la tiene activa). Se omite en PNG sin fondo:
+    // es un oscurecido pensado para fundir con el fondo, sobre transparencia
+    // dejaría bordes oscuros indeseados.
+    const vig = transparent ? null : State.vignettes?.[format.id];
     if (vig && vig.type) {
       const vigSrc = _findVignetteSrc(format, vig.type);
       if (vigSrc) {
@@ -378,8 +443,10 @@ const Export = (() => {
       }
     }
 
-    // Convierte a JPG a máxima calidad
-    const blob = await new Promise(res => out.toBlob(res, 'image/jpeg', 1.0));
+    // Codifica: PNG (sin pérdida, conserva alpha) o JPG a máxima calidad
+    const blob = await new Promise(res =>
+      transparent ? out.toBlob(res, 'image/png')
+                  : out.toBlob(res, 'image/jpeg', 1.0));
 
     // Limpieza
     Object.values(textureCache).forEach(tex => tex.dispose());
