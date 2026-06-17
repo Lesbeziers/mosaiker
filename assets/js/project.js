@@ -302,6 +302,7 @@ const Project = (() => {
     // 1. Campos por-formato y globales (no-composición).
     State.projectName       = data.projectName       || 'proyecto';
     State.activeFormatId    = data.activeFormatId    || null;
+    State.customFormat      = data.customFormat || null;
     State.overlays          = { ...(data.overlays         || {}) };
     State.vignettes         = JSON.parse(JSON.stringify(data.vignettes || {}));
     State.mosaicOpacity     = { ...(data.mosaicOpacity    || {}) };
@@ -344,8 +345,11 @@ const Project = (() => {
     });
 
     // 3. Activa el formato → aplica su composición (mosaico + transform restaurado).
-    if (typeof Formats !== 'undefined' && State.activeFormatId) {
-      Formats.setActive(State.activeFormatId);
+    //    Refresca antes el dropdown para que la opción CUSTOM muestre el tamaño
+    //    restaurado y getById('custom') funcione.
+    if (typeof Formats !== 'undefined') {
+      if (Formats.refresh) Formats.refresh();
+      if (State.activeFormatId) Formats.setActive(State.activeFormatId);
     }
 
     // 4. UI + toggle prefijos.
@@ -469,6 +473,7 @@ const Project = (() => {
       savedAt:         new Date().toISOString(),
 
       activeFormatId:  State.activeFormatId,
+      customFormat:    State.customFormat ? { ...State.customFormat } : null,
 
       // Composición por formato (mosaico, transform, encuadre, sustituciones).
       compositions:    JSON.parse(JSON.stringify(State.compositions || {})),

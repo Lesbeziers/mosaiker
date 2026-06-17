@@ -65,7 +65,16 @@ const Formats = (() => {
   }
 
   function getById(id) {
+    if (id === 'custom') return _customFormat();
     return FORMATS.find(f => f.id === id) || null;
+  }
+
+  // Formato custom sintetizado desde State.customFormat. Sin overlays (no hay
+  // zona de seguridad para tamaños arbitrarios).
+  function _customFormat() {
+    const c = State.customFormat;
+    if (!c || !c.width || !c.height) return null;
+    return { id: 'custom', name: 'Custom', width: c.width, height: c.height, overlays: [], custom: true };
   }
 
   function getActive() {
@@ -132,13 +141,34 @@ const Formats = (() => {
     if (!optionsEl) return;
     optionsEl.innerHTML = '';
 
-    FORMATS.forEach(f => {
-      const opt = document.createElement('div');
-      opt.className = 'custom-select-option';
-      opt.textContent = f.name;
-      opt.dataset.id = f.id;
-      optionsEl.appendChild(opt);
-    });
+    FORMATS.forEach(f => optionsEl.appendChild(_optionEl(f.id, f.name, `${f.width} × ${f.height}`)));
+
+    // Opción CUSTOM (siempre presente, al final). Muestra el tamaño si ya existe.
+    const c = State.customFormat;
+    const csize = (c && c.width && c.height) ? `${c.width} × ${c.height}` : 'definir…';
+    optionsEl.appendChild(_optionEl('custom', 'CUSTOM', csize));
+  }
+
+  // Opción del dropdown: nombre (izq) + tamaño A × B (der, atenuado).
+  function _optionEl(id, name, size) {
+    const opt = document.createElement('div');
+    opt.className = 'custom-select-option';
+    opt.dataset.id = id;
+    opt.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;gap:10px;';
+    const n = document.createElement('span');
+    n.textContent = name;
+    n.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    const s = document.createElement('span');
+    s.textContent = size;
+    s.style.cssText = 'flex-shrink:0;font-size:9px;font-weight:400;letter-spacing:0;text-transform:none;color:#777;';
+    opt.appendChild(n);
+    opt.appendChild(s);
+    return opt;
+  }
+
+  function _refreshDropdown() {
+    _buildDropdown();
+    if (State.activeFormatId) _markSelectedOption(State.activeFormatId);
   }
 
   function _bindDropdown() {
@@ -159,13 +189,18 @@ const Formats = (() => {
       const opt = e.target.closest('.custom-select-option');
       if (!opt) return;
       dropdown.classList.remove('open');
+      // Seleccionar CUSTOM siempre abre la modal de tamaño (también para re-editar).
+      if (opt.dataset.id === 'custom') { _openCustomModal(); return; }
       setActive(opt.dataset.id);
     });
   }
 
   function _updateTrigger(fmt) {
     const valueEl = document.getElementById('format-value');
-    if (valueEl) valueEl.textContent = fmt.name;
+    if (!valueEl || !fmt) return;
+    valueEl.textContent = (fmt.id === 'custom')
+      ? `Custom — ${fmt.width} × ${fmt.height}`
+      : fmt.name;
   }
 
   function _markSelectedOption(id) {
@@ -174,5 +209,90 @@ const Formats = (() => {
     });
   }
 
-  return { init, getAll, getById, getActive, setActive, ensureComposition };
+  // ── MODAL DE FORMATO CUSTOM ───────────────────────────────
+  function _openCustomModal() {
+    document.getElementById('custom-format-modal')?.remove();
+    const cur = State.customFormat || { width: 1920, height: 1080 };
+
+    const overlay = document.createElement('div');
+    overlay.id = 'custom-format-modal';
+    overlay.className = 'modal-overlay';
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.width = '360px';
+
+    const header = document.createElement('div');
+    header.className = 'modal-header';
+    header.textContent = 'Formato personalizado';
+
+    const body = document.createElement('div');
+    body.className = 'modal-body';
+
+    const desc = document.createElement('p');
+    desc.className = 'modal-desc';
+    desc.textContent = 'Introduce el tamaño en píxeles (máx. 8000 × 8000).';
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:10px;';
+    const mkField = (labelTxt, val) => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'flex:1;display:flex;flex-direction:column;';
+      const lab = document.createElement('label');
+      lab.className = 'modal-label';
+      lab.textContent = labelTxt;
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.className = 'modal-input';
+      inp.min = '1'; inp.max = '8000'; inp.step = '1'; inp.value = val;
+      inp.style.marginBottom = '0';
+      wrap.appendChild(lab); wrap.appendChild(inp);
+      return { wrap, inp };
+    };
+    const wF = mkField('Ancho (px)', cur.width);
+    const hF = mkField('Alto (px)',  cur.height);
+    row.appendChild(wF.wrap); row.appendChild(hF.wrap);
+
+    const err = document.createElement('p');
+    err.className = 'modal-desc';
+    err.style.cssText = 'color:#e0322d;min-height:14px;margin:2px 0 0;';
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:6px;';
+    const btnCancel = document.createElement('button');
+    btnCancel.className = 'modal-cancel';
+    btnCancel.textContent = 'Cancelar';
+    btnCancel.style.alignSelf = 'auto';
+    btnCancel.addEventListener('click', () => overlay.remove());
+    const btnOk = document.createElement('button');
+    btnOk.textContent = 'Aceptar';
+    btnOk.style.cssText = 'height:28px;padding:0 20px;border-radius:2px;font-family:var(--font);font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;background:var(--col-yellow);border:1px solid var(--col-yellow);color:#000;';
+
+    const apply = () => {
+      const w = Math.round(parseFloat(wF.inp.value));
+      const h = Math.round(parseFloat(hF.inp.value));
+      if (!Number.isFinite(w) || !Number.isFinite(h) || w < 1 || h < 1) {
+        err.textContent = 'Introduce números válidos.'; return;
+      }
+      if (w > 8000 || h > 8000) { err.textContent = 'Máximo 8000 × 8000 px.'; return; }
+      State.customFormat = { width: w, height: h };
+      _buildDropdown();          // refresca el tamaño mostrado en la opción CUSTOM
+      overlay.remove();
+      setActive('custom');
+    };
+    btnOk.addEventListener('click', apply);
+    [wF.inp, hF.inp].forEach(i => i.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  apply();
+      if (e.key === 'Escape') overlay.remove();
+    }));
+
+    btnRow.appendChild(btnCancel); btnRow.appendChild(btnOk);
+    body.appendChild(desc); body.appendChild(row); body.appendChild(err); body.appendChild(btnRow);
+    modal.appendChild(header); modal.appendChild(body);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    setTimeout(() => { wF.inp.focus(); wF.inp.select(); }, 50);
+  }
+
+  return { init, getAll, getById, getActive, setActive, ensureComposition, refresh: _refreshDropdown };
 })();

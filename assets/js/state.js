@@ -14,6 +14,10 @@ const State = {
   // Formato activo (id de Formats.FORMATS)
   activeFormatId: null,
 
+  // Formato personalizado (uno solo). null = no definido.
+  // { width, height } en px. El formato sintetizado tiene id 'custom' y sin overlays.
+  customFormat: null,
+
   // Esqueleto activo (id de Skeletons.SKELETONS).
   // null = ninguno aplicado aún → el botón muestra "Selecciona un mosaico".
   // OJO: a partir del modelo "composición por formato" esto es un PUNTERO al
