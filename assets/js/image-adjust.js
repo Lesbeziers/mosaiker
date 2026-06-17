@@ -109,12 +109,17 @@ const ImageAdjust = (() => {
     // Sobre un hueco → vincular esa imagen a ESE contenedor (ignora el índice
     // del archivo). Sobre vacío → carga por índice (comportamiento clásico).
     if (hit && file && typeof Images !== 'undefined' && Images.bindFileToContainer) {
-      State.containerImages[hit.key] = file.name;
-      delete State.imageAdjust[hit.key];      // imagen nueva → cover fresco
+      // Sustitución POR IMAGEN: se vincula al ÍNDICE de imagen (hit.n), así
+      // reemplaza esa imagen en todas sus apariciones dentro del formato
+      // (destacada + ecos). Clave de caché por (formato, índice) para no pisar
+      // a otros formatos que usen el mismo mosaico.
+      const cacheKey = State.activeFormatId + '::' + hit.n;
+      State.containerImages[hit.n] = file.name;
+      delete State.imageAdjust[hit.key];      // resetea el encuadre del hueco soltado
       const spin = _showSpinner(hit.key);     // feedback mientras decodifica (2-4s)
-      Images.bindFileToContainer(file, hit.key)
+      Images.bindFileToContainer(file, cacheKey)
         .then(() => { if (typeof Mosaic3D !== 'undefined') Mosaic3D.refreshTextures(); })
-        .catch(() => { delete State.containerImages[hit.key]; })
+        .catch(() => { delete State.containerImages[hit.n]; })
         .finally(() => { if (spin) spin.remove(); });
     } else if (typeof Images !== 'undefined') {
       Images.loadFiles(files);

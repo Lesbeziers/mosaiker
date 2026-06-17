@@ -16,7 +16,28 @@ const State = {
 
   // Esqueleto activo (id de Skeletons.SKELETONS).
   // null = ninguno aplicado aún → el botón muestra "Selecciona un mosaico".
+  // OJO: a partir del modelo "composición por formato" esto es un PUNTERO al
+  // skeletonId de la composición del formato activo (lo sincroniza Formats.setActive).
   activeSkeletonId: null,
+
+  // ── COMPOSICIÓN POR FORMATO ────────────────────────────────
+  // Cada formato guarda su propia composición independiente:
+  //   compositions[formatId] = {
+  //     skeletonId,                 // mosaico de ese formato
+  //     transform: { rotX, rotY, camX, camY, camZ, gap, radius, colOffsets },
+  //     imageAdjust: { contKey: {dx,dy,scale} },   // encuadre por contenedor
+  //     containerImages: { contKey: filename },     // sustituciones por contenedor
+  //     fitted: bool,               // si ya se auto-encuadró una vez
+  //   }
+  // El pool de imágenes por índice (Images) es GLOBAL. Vignette/opacidad/
+  // desenfoque/fondo siguen en sus mapas por-formato.
+  // transform / imageAdjust / containerImages activos son PUNTEROS a la
+  // composición del formato activo (se intercambian en Formats.setActive).
+  compositions: {},
+
+  // Mosaico por defecto para formatos que aún no tienen uno propio. Lo fija el
+  // primer mosaico elegido en el selector; luego cada formato puede cambiarlo.
+  defaultSkeletonId: null,
 
   // Parámetros del render 3D del mosaico (sliders TRANSFORMAR)
   transform: {

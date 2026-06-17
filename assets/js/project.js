@@ -114,6 +114,38 @@ const Project = (() => {
     input.click();
   }
 
+  // Sanitizado idéntico al del guardado (para reconstruir rutas).
+  function _san(s) { return String(s).replace(/[^a-z0-9]+/gi, '_'); }
+
+  // Imágenes vinculadas a partir de las COMPOSICIONES (siempre presentes), sin
+  // depender del manifest boundImages (que solo lo escribe el guardado ZIP).
+  // Usa el manifest como pista de ruta si existe; si no, reconstruye la ruta.
+  // Cada entrada lleva su clave de caché + un PREFIJO de ruta basado SOLO en la
+  // clave del contenedor (los archivos se nombran `bound/<clave>__<original>`),
+  // de modo que se emparejan ignorando el nombre original (que puede estar
+  // desincronizado). El manifest, si existe, se usa como atajo.
+  function _boundEntries(data) {
+    const manifest = data.boundImages || {};
+    const out = [];
+    Object.entries(State.compositions || {}).forEach(([fid, c]) => {
+      Object.keys(c.containerImages || {}).forEach((slotKey) => {
+        const cacheKey = fid + '::' + slotKey;
+        out.push({ cacheKey, manifestPath: manifest[cacheKey] || null, prefix: 'bound/' + _san(cacheKey) + '__' });
+      });
+    });
+    return out;
+  }
+
+  // Fondos por formato desde State.backgroundImages (siempre presente).
+  function _bgEntries(data) {
+    const manifest = data.bgImages || {};
+    const out = [];
+    Object.keys(State.backgroundImages || {}).forEach((fid) => {
+      out.push({ fid, manifestPath: manifest[fid] || null, prefix: 'bg/' + _san(fid) + '__' });
+    });
+    return out;
+  }
+
   async function _loadFromFolder(files) {
     // Busca el primer JSON de proyecto Mosaiker dentro de la carpeta.
     // Si hay varios, nos quedamos con el primero que valide.
@@ -143,21 +175,30 @@ const Project = (() => {
     if (typeof Images !== 'undefined') Images.clear();
     _applyState(data);
 
-    // Revincula imágenes propias de contenedor buscándolas por su ruta /imagenes/bound.
-    const bound = data.boundImages || {};
-    for (const [key, storedPath] of Object.entries(bound)) {
-      const bf = files.find(f => f.webkitRelativePath.includes('/imagenes/' + storedPath));
-      if (!bf) { console.warn(`[Mosaiker] Imagen vinculada ausente: ${storedPath}`); continue; }
-      try { await Images.bindFileToContainer(bf, key); } catch (_) { delete State.containerImages[key]; }
+    // Localiza un archivo de la carpeta por manifest (atajo) o por prefijo de clave.
+    const findFolder = (manifestPath, prefix) =>
+      (manifestPath && files.find(f => f.webkitRelativePath.includes('/imagenes/' + manifestPath)))
+      || files.find(f => f.webkitRelativePath.includes('/imagenes/' + prefix))
+      || null;
+
+    // Imágenes vinculadas por contenedor (emparejadas por clave, no por nombre).
+    for (const { cacheKey, manifestPath, prefix } of _boundEntries(data)) {
+      const bf = findFolder(manifestPath, prefix);
+      if (!bf) { console.warn('[Mosaiker] Imagen vinculada ausente:', prefix); continue; }
+      try { await Images.bindFileToContainer(bf, cacheKey); } catch (_) { console.warn('[Mosaiker] No se pudo revincular', cacheKey); }
     }
 
-    // Imágenes de fondo por formato (buscadas por su ruta /imagenes/bg)
-    const bgMap = data.bgImages || {};
-    for (const [fid, storedPath] of Object.entries(bgMap)) {
-      const bf = files.find(f => f.webkitRelativePath.includes('/imagenes/' + storedPath));
+    // Fondos por formato.
+    for (const { fid, manifestPath, prefix } of _bgEntries(data)) {
+      const bf = findFolder(manifestPath, prefix);
       if (bf && typeof Background !== 'undefined') Background.setImageFileFor(fid, bf);
     }
     if (typeof Background !== 'undefined') Background.update();
+
+    // Sello (imagen global): por data.sello o, si falta, buscando en /imagenes/sello/.
+    let selloFile = data.sello ? files.find(f => f.webkitRelativePath.includes('/imagenes/' + data.sello)) : null;
+    if (!selloFile) selloFile = files.find(f => f.webkitRelativePath.includes('/imagenes/sello/'));
+    if (selloFile) imageFiles.push(selloFile);
 
     if (imageFiles.length > 0 && typeof Images !== 'undefined') {
       await Images.loadFiles(imageFiles);
@@ -197,28 +238,46 @@ const Project = (() => {
     if (typeof Images !== 'undefined') Images.clear();
     _applyState(data);
 
-    // Reconstruye y revincula las imágenes propias de contenedor desde el ZIP.
-    const bound = data.boundImages || {};
-    for (const [key, storedPath] of Object.entries(bound)) {
-      const entry = zip.file('imagenes/' + storedPath);
-      if (!entry) { console.warn(`[Mosaiker] Imagen vinculada ausente en ZIP: ${storedPath}`); continue; }
-      const blob = await entry.async('blob');
-      const fname = storedPath.split('/').pop();
-      const f = new File([blob], fname, { type: blob.type || 'image/jpeg' });
-      try { await Images.bindFileToContainer(f, key); } catch (_) { delete State.containerImages[key]; }
+    // Localiza una entrada del ZIP por manifest (atajo) o por prefijo de clave.
+    const findZip = (manifestPath, prefix) => {
+      if (manifestPath && zip.file('imagenes/' + manifestPath)) return 'imagenes/' + manifestPath;
+      return Object.keys(zip.files).find(n => n.indexOf('imagenes/' + prefix) !== -1 && !zip.files[n].dir) || null;
+    };
+
+    // Imágenes vinculadas por contenedor (emparejadas por clave, no por nombre).
+    for (const { cacheKey, manifestPath, prefix } of _boundEntries(data)) {
+      const name = findZip(manifestPath, prefix);
+      if (!name) { console.warn('[Mosaiker] Imagen vinculada ausente en ZIP:', prefix); continue; }
+      const blob = await zip.file(name).async('blob');
+      const f = new File([blob], name.split('/').pop(), { type: blob.type || 'image/jpeg' });
+      try { await Images.bindFileToContainer(f, cacheKey); } catch (_) { console.warn('[Mosaiker] No se pudo revincular', cacheKey); }
     }
 
-    // Reconstruye las imágenes de fondo por formato desde el ZIP
-    const bgMap = data.bgImages || {};
-    for (const [fid, storedPath] of Object.entries(bgMap)) {
-      const entry = zip.file('imagenes/' + storedPath);
-      if (!entry) { console.warn(`[Mosaiker] Imagen de fondo ausente en ZIP: ${storedPath}`); continue; }
-      const blob = await entry.async('blob');
-      const fname = storedPath.split('/').pop();
-      const f = new File([blob], fname, { type: blob.type || 'image/jpeg' });
+    // Fondos por formato.
+    for (const { fid, manifestPath, prefix } of _bgEntries(data)) {
+      const name = findZip(manifestPath, prefix);
+      if (!name) { console.warn('[Mosaiker] Imagen de fondo ausente en ZIP:', prefix); continue; }
+      const blob = await zip.file(name).async('blob');
+      const f = new File([blob], name.split('/').pop(), { type: blob.type || 'image/jpeg' });
       if (typeof Background !== 'undefined') Background.setImageFileFor(fid, f);
     }
     if (typeof Background !== 'undefined') Background.update();
+
+    // Sello (imagen global): por data.sello o, si falta, buscando en imagenes/sello/.
+    let selloPath = data.sello;
+    if (!selloPath) {
+      const k = Object.keys(zip.files).find(n => n.indexOf('imagenes/sello/') !== -1 && !zip.files[n].dir);
+      if (k) selloPath = k.slice(k.indexOf('imagenes/') + 'imagenes/'.length);
+    }
+    if (selloPath) {
+      const entry = zip.file('imagenes/' + selloPath);
+      if (entry) {
+        const blob = await entry.async('blob');
+        files.push(new File([blob], selloPath.split('/').pop(), { type: blob.type || 'image/png' }));
+      } else {
+        console.warn('[Mosaiker] Sello ausente en ZIP:', selloPath);
+      }
+    }
 
     // Carga las imágenes por índice (esto dispara un refresh final del mosaico)
     if (files.length > 0 && typeof Images !== 'undefined') {
@@ -240,54 +299,62 @@ const Project = (() => {
   // ── APLICAR ESTADO ────────────────────────────────────────
 
   function _applyState(data) {
-    // 1. Restaura todos los campos primitivos del estado
+    // 1. Campos por-formato y globales (no-composición).
     State.projectName       = data.projectName       || 'proyecto';
     State.activeFormatId    = data.activeFormatId    || null;
-    State.activeSkeletonId  = data.activeSkeletonId  || 'clasico';
     State.overlays          = { ...(data.overlays         || {}) };
     State.vignettes         = JSON.parse(JSON.stringify(data.vignettes || {}));
     State.mosaicOpacity     = { ...(data.mosaicOpacity    || {}) };
     State.mosaicBlur        = { ...(data.mosaicBlur       || {}) };
     State.backgrounds       = { ...(data.backgrounds      || {}) };
     State.backgroundImages  = { ...(data.backgroundImages || {}) };
-    State.imageAdjust       = JSON.parse(JSON.stringify(data.imageAdjust || {}));
-    State.containerImages   = { ...(data.containerImages  || {}) };
     State.formatsOk         = { ...(data.formatsOk        || {}) };
     State.formatSnapshots   = { ...(data.formatSnapshots  || {}) };
     State.showImagePrefixes = !!data.showImagePrefixes;
-    State.transform         = JSON.parse(JSON.stringify(data.transform || {}));
-    if (!Array.isArray(State.transform.colOffsets)) State.transform.colOffsets = [];
 
-    // 2. Activa esqueleto en cascada (resetea colOffsets y dispara
-    //    fitToLienzo en Mosaic3D — los re-aplicamos justo después).
-    if (typeof Skeletons !== 'undefined' && State.activeSkeletonId) {
-      Skeletons.setActive(State.activeSkeletonId);
+    // 2. Composiciones por formato.
+    if (data.compositions && Object.keys(data.compositions).length) {
+      State.compositions      = JSON.parse(JSON.stringify(data.compositions));
+      State.defaultSkeletonId = data.defaultSkeletonId || null;
+    } else {
+      // Migración de proyecto antiguo (transform/esqueleto globales) → una
+      // composición para el formato activo.
+      State.compositions = {};
+      State.defaultSkeletonId = data.activeSkeletonId || null;
+      const base = { rotX: 35, rotY: 0, camX: 0, camY: 0, camZ: 10, gap: 8, radius: 12, colOffsets: [] };
+      const t = Object.assign(base, (data.transform && typeof data.transform === 'object') ? data.transform : {});
+      if (!Array.isArray(t.colOffsets)) t.colOffsets = [];
+      if (data.activeFormatId) {
+        State.compositions[data.activeFormatId] = {
+          skeletonId:      data.activeSkeletonId || null,
+          transform:       JSON.parse(JSON.stringify(t)),
+          imageAdjust:     JSON.parse(JSON.stringify(data.imageAdjust || {})),
+          containerImages: { ...(data.containerImages || {}) },
+          fitted:          true,
+        };
+      }
     }
+    // Las composiciones cargadas ya tienen su encuadre → restaurar, no re-fit.
+    Object.values(State.compositions).forEach(c => {
+      c.fitted = true;
+      if (!c.transform || typeof c.transform !== 'object') c.transform = { rotX: 35, rotY: 0, camX: 0, camY: 0, camZ: 10, gap: 8, radius: 12, colOffsets: [] };
+      if (!Array.isArray(c.transform.colOffsets)) c.transform.colOffsets = [];
+      if (!c.imageAdjust)     c.imageAdjust = {};
+      if (!c.containerImages) c.containerImages = {};
+    });
 
-    // 3. Activa formato en cascada (dispara Canvas, Overlays, Vignettes,
-    //    Mosaic3D.setFormat→fitToLienzo, OK button).
+    // 3. Activa el formato → aplica su composición (mosaico + transform restaurado).
     if (typeof Formats !== 'undefined' && State.activeFormatId) {
       Formats.setActive(State.activeFormatId);
     }
 
-    // 4. Re-aplica el transform guardado (sobreescribe los resets de los
-    //    pasos anteriores: colOffsets y camZ habrán quedado a sus defaults).
-    State.transform = JSON.parse(JSON.stringify(data.transform || {}));
-    if (!Array.isArray(State.transform.colOffsets)) State.transform.colOffsets = [];
-    if (typeof Mosaic3D !== 'undefined') {
-      Mosaic3D.setTransform(State.transform);
-      Mosaic3D.rebuild(); // necesario para que colOffsets surtan efecto
-    }
-
-    // 5. Sincroniza UI con el estado restaurado
+    // 4. UI + toggle prefijos.
     if (typeof UI !== 'undefined') {
       if (UI.syncTransformSliders) UI.syncTransformSliders();
       if (UI.renderColOffsets)     UI.renderColOffsets();
       if (UI.updateOkButton)       UI.updateOkButton();
       if (UI.updateExportButton)   UI.updateExportButton();
     }
-
-    // 6. Toggle "Mostrar prefijos"
     const cb = document.getElementById('toggle-show-prefixes');
     if (cb) {
       cb.checked = !!State.showImagePrefixes;
@@ -402,17 +469,17 @@ const Project = (() => {
       savedAt:         new Date().toISOString(),
 
       activeFormatId:  State.activeFormatId,
-      activeSkeletonId:State.activeSkeletonId,
 
-      transform:       JSON.parse(JSON.stringify(State.transform)),
+      // Composición por formato (mosaico, transform, encuadre, sustituciones).
+      compositions:    JSON.parse(JSON.stringify(State.compositions || {})),
+      defaultSkeletonId: State.defaultSkeletonId || null,
+
       overlays:        { ...State.overlays },
       vignettes:       JSON.parse(JSON.stringify(State.vignettes)),
       mosaicOpacity:   { ...State.mosaicOpacity },
       mosaicBlur:      { ...State.mosaicBlur },
       backgrounds:     { ...State.backgrounds },
       backgroundImages:{ ...State.backgroundImages },
-      imageAdjust:     JSON.parse(JSON.stringify(State.imageAdjust || {})),
-      containerImages: { ...State.containerImages },
       formatsOk:       { ...State.formatsOk },
       formatSnapshots: { ...State.formatSnapshots },
       showImagePrefixes: !!State.showImagePrefixes,
@@ -453,15 +520,18 @@ const Project = (() => {
         if (file) imgFolder.file(file.name, file);
       });
 
-      // Imágenes vinculadas a contenedores → subcarpeta /imagenes/bound con
-      // nombre único (clave del contenedor) para evitar colisiones de nombre.
+      // Imágenes vinculadas a contenedores (de TODAS las composiciones) →
+      // subcarpeta /imagenes/bound. Clave de caché = formatId::slotKey.
       const boundManifest = {};
-      Object.keys(State.containerImages || {}).forEach(key => {
-        const file = Images.getOriginalFile(key);
-        if (!file) return;
-        const stored = 'bound/' + key.replace(/[^a-z0-9]+/gi, '_') + '__' + file.name;
-        imgFolder.file(stored, file);
-        boundManifest[key] = stored;
+      Object.entries(State.compositions || {}).forEach(([fid, c]) => {
+        Object.keys(c.containerImages || {}).forEach(slotKey => {
+          const cacheKey = fid + '::' + slotKey;
+          const file = Images.getOriginalFile(cacheKey);
+          if (!file) return;
+          const stored = 'bound/' + cacheKey.replace(/[^a-z0-9]+/gi, '_') + '__' + file.name;
+          imgFolder.file(stored, file);
+          boundManifest[cacheKey] = stored;
+        });
       });
       data.boundImages = boundManifest;
 
@@ -477,6 +547,16 @@ const Project = (() => {
         });
       }
       data.bgImages = bgManifest;
+
+      // Sello (imagen global de la banda central de los mosaicos 'stacks').
+      if (Images.getSelloFile) {
+        const sf = Images.getSelloFile();
+        if (sf) {
+          const stored = 'sello/' + sf.name;
+          imgFolder.file(stored, sf);
+          data.sello = stored;
+        }
+      }
     }
 
     zip.file(name + '.json', JSON.stringify(data, null, 2));

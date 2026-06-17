@@ -118,12 +118,13 @@ const UI = (() => {
   // Al volver a editor desde VER TODAS, el sidebar pasa de width:0 a su ancho
   // con una transición (~260ms). Si recolocamos el lienzo antes de que termine,
   // canvas-area se mide demasiado ancho y el lienzo queda ladeado a la derecha.
-  // Re-centramos cuando la transición de anchura del sidebar acaba (con fallback).
+  // Reposicionamos el lienzo cuando la transición acaba (con fallback). OJO: NO
+  // re-encuadramos (fitToLienzo) — pisaría el encuadre propio del formato; solo
+  // Canvas.render (que reposiciona el lienzo y resincroniza el canvas WebGL).
   function _recenterAfterLayout() {
     const sidebar = document.getElementById('sidebar');
     const doFit = () => {
-      if (typeof Canvas    !== 'undefined') Canvas.render();      // reposiciona/redimensiona lienzo
-      if (typeof Mosaic3D  !== 'undefined') Mosaic3D.fitToLienzo(); // re-encuadra y centra
+      if (typeof Canvas !== 'undefined') Canvas.render(); // reposiciona lienzo + Mosaic3D.resize()
     };
     if (!sidebar) { setTimeout(doFit, 320); return; }
     let done = false;

@@ -14,8 +14,9 @@ const Mosaic3D = (() => {
 
   // Constantes geométricas (heredadas del prototipo)
   const CELL_H  = 1.0;
-  const VERT_W  = 0.65;
-  const HORIZ_W = VERT_W * 2 + 0.08;
+  // Fuente única de verdad de proporciones: verticales 9:16, horizontales 16:9.
+  const VERT_W  = CELL_H * 1200 / 1800;  // 0.667 — carátula vertical 2:3 (1200×1800)
+  const HORIZ_W = CELL_H * 16 / 9;   // 1.7778 — carátula horizontal 16:9 pura
 
   // Parámetros de transformación (espejo de State.transform)
   // Los inicializamos en init() leyendo de State.
@@ -113,6 +114,42 @@ const Mosaic3D = (() => {
   function setFormat(/* fmt */) {
     fitToLienzo();
     render();
+  }
+
+  // Aplica la composición de un formato: carga su transform en params, monta su
+  // mosaico y, si es la primera vez (sin encuadre previo), auto-encuadra; si ya
+  // estaba trabajado, restaura el encuadre guardado tal cual.
+  function applyFormat(comp) {
+    if (!mounted || !comp) return;
+    const t = comp.transform || {};
+    ['rotX', 'rotY', 'camX', 'camY', 'camZ', 'gap', 'radius'].forEach(k => {
+      if (typeof t[k] === 'number') params[k] = t[k];
+    });
+    _highlightKey = null;
+    activeSkeleton = (comp.skeletonId && typeof Skeletons !== 'undefined')
+      ? Skeletons.getById(comp.skeletonId) : null;
+
+    if (!activeSkeleton) {
+      // Formato sin mosaico aún: vacía el pivot.
+      while (pivot.children.length > 0) {
+        const m = pivot.children[0];
+        pivot.remove(m);
+        if (m.geometry) m.geometry.dispose();
+        if (m.material) m.material.dispose();
+      }
+      _applyTransform();
+      render();
+      return;
+    }
+
+    _build();
+    if (comp.fitted) {
+      _applyTransform();   // restaura la cámara guardada
+      render();
+    } else {
+      fitToLienzo();       // primer encuadre (escribe en comp.transform vía State)
+      comp.fitted = true;
+    }
   }
 
   // Calcula la cámara Z para que el mosaico llene el lienzo CON DESBORDE
@@ -297,9 +334,9 @@ const Mosaic3D = (() => {
   // Soporta defaultOffsets[col] para desplazamiento Y por columna.
   function _buildColumns(esq) {
     const gap     = params.gap * 0.01;
-    const H_H     = CELL_H * 0.5625;        // alto horizontal (16:9)
     const V_H     = CELL_H;                  // alto vertical
     const colW    = VERT_W * 2 + gap;       // ancho de columna (2 verticales + gap)
+    const H_H     = colW * 9 / 16;          // alto horizontal 16:9 (ancho = colW)
     const numCols = esq.cols.length;
     const totalW  = numCols * colW + (numCols - 1) * gap;
     const startX  = -totalW / 2;
@@ -407,7 +444,7 @@ const Mosaic3D = (() => {
   // columna vía State.transform.colOffsets.
   function _buildVColumns(esq) {
     const gap     = params.gap * 0.01;
-    const cellW   = CELL_H * 9 / 16;   // 9:16 exacto
+    const cellW   = VERT_W;            // 2:3 (1200×1800), misma fuente que el resto
     const numCols = esq.cols.length;
     const totalW  = numCols * cellW + (numCols - 1) * gap;
     const startX  = -totalW / 2;
@@ -645,10 +682,11 @@ const Mosaic3D = (() => {
     // "Cover" centrado: si hay imagen cargada y conocemos su tamaño,
     // recortamos su UV para que rellene el hueco sin deformar (amplía
     // desde el centro). Si no hay imagen, mapeo completo (placeholder).
-    // Imagen efectiva: si el contenedor tiene una imagen vinculada (drop),
-    // se usa su clave (el propio slotKey) con prioridad sobre el índice n.
-    const bound  = (typeof State !== 'undefined' && State.containerImages && State.containerImages[slotKey]);
-    const imgKey = bound ? slotKey : slot.n;
+    // Imagen efectiva: la sustitución se vincula al ÍNDICE de imagen (slot.n),
+    // así afecta a TODAS las apariciones de esa imagen en el formato. La clave
+    // de caché incluye el formato (formatId::n) para no pisar a otros formatos.
+    const bound  = (typeof State !== 'undefined' && State.containerImages && State.containerImages[slot.n]);
+    const imgKey = bound ? (State.activeFormatId + '::' + slot.n) : slot.n;
 
     let coverUV = null;
     const img = (typeof Images !== 'undefined') ? Images.getImage(imgKey) : null;
@@ -1060,6 +1098,6 @@ const Mosaic3D = (() => {
     init, setSkeleton, setFormat, setTransform, setColOffset, resize, render, rebuild,
     fitToLienzo, refreshTextures, setPrefixesVisible, getTHREE,
     pickKeyAt, panByScreen, scaleByFactor, setHighlight, beginCapture, endCapture,
-    setDropHint, clearDropHint, getContainerScreen, getIndexScreens,
+    setDropHint, clearDropHint, getContainerScreen, getIndexScreens, applyFormat,
   };
 })();

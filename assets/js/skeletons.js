@@ -307,7 +307,7 @@ const Skeletons = (() => {
       id:   'horizontal-sello',
       name: 'ZIG-ZAG + SELLO',
       type: 'stacks',
-      band: { after: 4, width: 0.65 }, // width = placeholder, pendiente
+      band: { after: 4 }, // ancho de la calle = ancho de carátula (VERT_W)
       cols: [
         { drop: 0,   cells: [ { n: 10, opacity: 0.2 }, { n: 1,  opacity: 1   } ] },
         { drop: 0.5, cells: [ { n: 2,  opacity: 1   }, { n: 9,  opacity: 0.2 } ] },
@@ -499,15 +499,40 @@ const Skeletons = (() => {
     return { total: map.size, h, v, s };
   }
 
+  // Elige un mosaico para el FORMATO ACTIVO. Si es el primer mosaico del
+  // proyecto, se fija como default y se propaga a los formatos que aún no
+  // tengan uno propio (los demás, ya con su mosaico, no se tocan).
   function setActive(id) {
     const esq = getById(id);
     if (!esq) return;
+    const offsets = esq.defaultOffsets ? [...esq.defaultOffsets] : [];
+
+    const fid  = State.activeFormatId;
+    const comp = (fid && typeof Formats !== 'undefined' && Formats.ensureComposition)
+      ? Formats.ensureComposition(fid) : null;
+    if (comp) {
+      comp.skeletonId = id;
+      comp.transform.colOffsets = offsets;
+      comp.fitted = true;            // el picker re-encuadra (Mosaic3D.setSkeleton)
+    }
+
     State.activeSkeletonId = id;
-    // Inicializa los offsets de columna según el esqueleto activo
-    State.transform.colOffsets = esq.defaultOffsets ? [...esq.defaultOffsets] : [];
+    if (State.transform) State.transform.colOffsets = offsets;
+
+    // Default para formatos sin mosaico propio (solo la primera vez).
+    if (!State.defaultSkeletonId) {
+      State.defaultSkeletonId = id;
+      Object.values(State.compositions || {}).forEach(c => { if (!c.skeletonId) c.skeletonId = id; });
+    }
+
     _updateButtonLabel(esq);
     if (typeof Mosaic3D !== 'undefined') Mosaic3D.setSkeleton(esq);
     if (typeof UI       !== 'undefined' && UI.renderColOffsets) UI.renderColOffsets();
+  }
+
+  // Actualiza la etiqueta del botón al esqueleto activo (lo usa Formats.setActive).
+  function refreshActiveLabel() {
+    _updateButtonLabel(getActive());
   }
 
   // ── BOTÓN + MODAL ─────────────────────────────────────────
@@ -615,8 +640,9 @@ const Skeletons = (() => {
   // se ven en un tono más apagado sobre el fondo oscuro de la tarjeta.
   function _thumbSVG(esq) {
     const CELL_H = 1.0;
-    const VERT_W = 0.65;
-    const HORIZ_W = VERT_W * 2 + 0.08;
+    // Mismas proporciones que el render 3D: verticales 9:16, horizontales 16:9.
+    const VERT_W = CELL_H * 1200 / 1800;  // 0.667 — vertical 2:3 (1200×1800)
+    const HORIZ_W = CELL_H * 16 / 9;  // 1.7778
     const gap = 0.08;
     const rects = [];
 
@@ -643,9 +669,9 @@ const Skeletons = (() => {
         }
       }
     } else if (esq.type === 'columns') {
-      const H_H = CELL_H * 0.5625;
       const V_H = CELL_H;
       const colW = VERT_W * 2 + gap;
+      const H_H = colW * 9 / 16;   // alto horizontal 16:9 (ancho = colW)
       const numCols = esq.cols.length;
       const totalW = numCols * colW + (numCols - 1) * gap;
       const startX = -totalW / 2;
@@ -732,8 +758,8 @@ const Skeletons = (() => {
         });
       });
     } else if (esq.type === 'vcolumns') {
-      // Columnas de UNA vertical (9:16) con offset Y por columna.
-      const cellW = CELL_H * 9 / 16;
+      // Columnas de UNA vertical (2:3) con offset Y por columna.
+      const cellW = VERT_W;
       const cellH = CELL_H;
       const numCols = esq.cols.length;
       const totalW = numCols * cellW + (numCols - 1) * gap;
@@ -792,5 +818,5 @@ const Skeletons = (() => {
     return `<svg viewBox="${minX.toFixed(3)} 0 ${W.toFixed(3)} ${H.toFixed(3)}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${body}</svg>`;
   }
 
-  return { init, getAll, getById, getActive, setActive, imageCount };
+  return { init, getAll, getById, getActive, setActive, imageCount, refreshActiveLabel };
 })();

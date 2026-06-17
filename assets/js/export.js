@@ -14,13 +14,18 @@ const Export = (() => {
   // Mismas constantes geométricas que mosaic-3d.js para mantener el
   // mismo look entre editor y export.
   const CELL_H  = 1.0;
-  const VERT_W  = 0.65;
-  const HORIZ_W = VERT_W * 2 + 0.08;
+  // Fuente única de verdad de proporciones: verticales 9:16, horizontales 16:9.
+  const VERT_W  = CELL_H * 1200 / 1800;  // 0.667 — carátula vertical 2:3 (1200×1800)
+  const HORIZ_W = CELL_H * 16 / 9;   // 1.7778 — carátula horizontal 16:9 pura
 
   // Claves de contenedor (orden de render) para aplicar el ajuste de encuadre
   // igual que el editor. Se resetean al construir la geometría de cada formato.
   let _exSlotIndex  = 0;
   let _exSkeletonId = '?';
+  let _exComp       = null;   // composición del formato que se está exportando
+  let _exFormatId   = '?';
+  let _exFormatH    = 1;       // alto en px del formato (para marcos a 3px)
+  let _exSelloBitmap = null;   // bitmap del sello (mosaicos 'stacks')
 
   function init() {
     document.getElementById('btn-exportar')?.addEventListener('click', _showModal);
@@ -171,12 +176,6 @@ const Export = (() => {
       alert('Three.js no está cargado todavía. Inténtalo de nuevo en unos segundos.');
       return;
     }
-    const esq = (typeof Skeletons !== 'undefined') ? Skeletons.getActive() : null;
-    if (!esq) {
-      alert('No hay ningún esqueleto activo.');
-      return;
-    }
-
     const progress = _showProgress(okIds.length + 1); // +1 por la pre-carga
     progress.update(0, 'Decodificando imágenes a resolución completa…');
 
@@ -188,8 +187,12 @@ const Export = (() => {
     // con <img> es completamente robusto.
     const fullBitmaps = {};
     const numbers = (typeof Images !== 'undefined') ? Images.getLoadedNumbers() : [];
-    // Incluye también las imágenes vinculadas a contenedores (claves string).
-    const boundKeys = (State.containerImages) ? Object.keys(State.containerImages) : [];
+    // Imágenes vinculadas por contenedor, con clave (formatId::slotKey) de TODAS
+    // las composiciones (cada formato puede tener las suyas).
+    const boundKeys = [];
+    Object.entries(State.compositions || {}).forEach(([fid, c]) => {
+      Object.keys(c.containerImages || {}).forEach(k => boundKeys.push(fid + '::' + k));
+    });
     for (const k of [...numbers, ...boundKeys]) {
       const file = Images.getOriginalFile(k);
       if (!file) continue;
@@ -198,6 +201,12 @@ const Export = (() => {
       } catch (err) {
         console.warn(`[Mosaiker] No se pudo decodificar imagen ${k} (${file.name}):`, err);
       }
+    }
+    // Sello (banda central de los mosaicos 'stacks'), si lo hay.
+    _exSelloBitmap = null;
+    if (typeof Images !== 'undefined' && Images.hasSello && Images.hasSello()) {
+      const sf = Images.getSelloFile && Images.getSelloFile();
+      if (sf) { try { _exSelloBitmap = await _decodeFullRes(sf); } catch (e) { console.warn('[Mosaiker] No se pudo decodificar el sello:', e); } }
     }
 
     const zip = new JSZip();
@@ -212,7 +221,7 @@ const Export = (() => {
       progress.update(i + 1, fmt.name);
 
       try {
-        const blob = await _renderFormat(THREE, fmt, esq, fullBitmaps);
+        const blob = await _renderFormat(THREE, fmt, fullBitmaps);
         if (!blob) continue;
         const filename = `${baseName}-${_slug(fmt.name)}.jpg`;
         zip.file(filename, await blob.arrayBuffer());
@@ -247,10 +256,16 @@ const Export = (() => {
 
   // ── RENDER DE UN FORMATO ──────────────────────────────────
 
-  async function _renderFormat(THREE, format, esq, fullBitmaps) {
+  async function _renderFormat(THREE, format, fullBitmaps) {
     const W = format.width;
     const H = format.height;
-    const p = State.transform;
+    // Composición de ESTE formato: su mosaico, transform, encuadre y sustituciones.
+    const comp = (State.compositions && State.compositions[format.id]) || null;
+    const esq  = (comp && comp.skeletonId && typeof Skeletons !== 'undefined')
+      ? Skeletons.getById(comp.skeletonId) : null;
+    const p    = (comp && comp.transform) || State.transform || {};
+    _exComp     = comp;        // usado por _addMesh / _coverUVAdjusted
+    _exFormatId = format.id;
 
     // Renderer offscreen a resolución real del formato
     const renderer = new THREE.WebGLRenderer({
@@ -302,14 +317,19 @@ const Export = (() => {
     };
 
     // Construye geometría. Resetea las claves de contenedor (orden de render)
-    // para aplicar el mismo ajuste de encuadre que el editor.
+    // para aplicar el mismo ajuste de encuadre que el editor. Si el formato no
+    // tiene mosaico, se exporta solo el fondo.
     _exSlotIndex = 0;
-    _exSkeletonId = esq.id;
-    if (esq.type === 'grid')    _buildGrid   (THREE, pivot, esq, p, getTexture);
-    if (esq.type === 'columns') _buildColumns(THREE, pivot, esq, p, getTexture);
-    if (esq.type === 'rows')    _buildRows   (THREE, pivot, esq, p, getTexture);
-    if (esq.type === 'vcolumns')_buildVColumns(THREE, pivot, esq, p, getTexture);
-    if (esq.type === 'free')    _buildFree   (THREE, pivot, esq, p, getTexture);
+    _exSkeletonId = esq ? esq.id : '?';
+    _exFormatH = H;
+    if (esq) {
+      if (esq.type === 'grid')    _buildGrid   (THREE, pivot, esq, p, getTexture);
+      if (esq.type === 'columns') _buildColumns(THREE, pivot, esq, p, getTexture);
+      if (esq.type === 'rows')    _buildRows   (THREE, pivot, esq, p, getTexture);
+      if (esq.type === 'vcolumns')_buildVColumns(THREE, pivot, esq, p, getTexture);
+      if (esq.type === 'free')    _buildFree   (THREE, pivot, esq, p, getTexture);
+      if (esq.type === 'stacks')  _buildStacks (THREE, pivot, esq, p, getTexture);
+    }
 
     // Render
     renderer.render(scene, camera);
@@ -403,14 +423,14 @@ const Export = (() => {
 
   function _buildColumns(THREE, pivot, esq, p, getTexture) {
     const gap   = (p.gap ?? 8) * 0.01;
-    const H_H   = CELL_H * 0.5625;
     const V_H   = CELL_H;
     const colW  = VERT_W * 2 + gap;
+    const H_H   = colW * 9 / 16;   // alto horizontal 16:9 (ancho = colW)
     const numCols = esq.cols.length;
     const totalW  = numCols * colW + (numCols - 1) * gap;
     const startX  = -totalW / 2;
 
-    const stateOffsets = State.transform?.colOffsets;
+    const stateOffsets = p?.colOffsets;
     const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numCols)
       ? stateOffsets
       : (esq.defaultOffsets || new Array(numCols).fill(0));
@@ -464,7 +484,7 @@ const Export = (() => {
     const totalH  = numRows * cellH + (numRows - 1) * gap;
     const startY  = totalH / 2 - cellH / 2;
 
-    const stateOffsets = State.transform?.colOffsets;
+    const stateOffsets = p?.colOffsets;
     const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numRows)
       ? stateOffsets
       : (esq.defaultOffsets || new Array(numRows).fill(0));
@@ -485,12 +505,12 @@ const Export = (() => {
 
   function _buildVColumns(THREE, pivot, esq, p, getTexture) {
     const gap     = (p.gap ?? 8) * 0.01;
-    const cellW   = CELL_H * 9 / 16;
+    const cellW   = VERT_W;   // 2:3 (1200×1800), misma fuente que el resto
     const numCols = esq.cols.length;
     const totalW  = numCols * cellW + (numCols - 1) * gap;
     const startX  = -totalW / 2;
 
-    const stateOffsets = State.transform?.colOffsets;
+    const stateOffsets = p?.colOffsets;
     const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numCols)
       ? stateOffsets
       : (esq.defaultOffsets || new Array(numCols).fill(0));
@@ -528,13 +548,110 @@ const Export = (() => {
     });
   }
 
+  // Layout 'stacks' (ZIG-ZAG / ZIG-ZAG+SELLO): columnas de 1 vertical de ancho,
+  // escalonado fijo por columna y banda central opcional con el sello repetido.
+  // Portado de mosaic-3d.js para que la exportación no salga en negro.
+  function _buildStacks(THREE, pivot, esq, p, getTexture) {
+    const gap       = (p.gap ?? 8) * 0.01;
+    const step      = CELL_H + gap;
+    const bandAfter = esq.band ? esq.band.after : -1;
+    const bandW     = (esq.band && esq.band.width) || VERT_W;
+
+    const cells = [];
+    let cursor = 0, maxX = 0, topMost = -Infinity, bottomMost = Infinity, laneX = null;
+    esq.cols.forEach((col, ci) => {
+      const drop = col.drop || 0;
+      let top = -drop * step;
+      col.cells.forEach(c => {
+        const cy = top - CELL_H / 2;
+        cells.push({ x: cursor, cy, n: c.n, opacity: c.opacity ?? 1 });
+        if (cursor + VERT_W > maxX) maxX = cursor + VERT_W;
+        if (top > topMost) topMost = top;
+        if (cy - CELL_H / 2 < bottomMost) bottomMost = cy - CELL_H / 2;
+        top -= step;
+      });
+      cursor += VERT_W + gap;
+      if (ci === bandAfter) { laneX = cursor; cursor += bandW + gap; }
+    });
+
+    const offsetX = -maxX / 2;
+    const offsetY = -(topMost + bottomMost) / 2;
+
+    cells.forEach(c => {
+      _addMesh(THREE, pivot,
+        { n: c.n, ratio: 'V', opacity: c.opacity, frame: c.opacity >= 0.99 },
+        c.x + offsetX, c.cy + offsetY, VERT_W, CELL_H, p, getTexture);
+    });
+
+    if (esq.band && laneX !== null) {
+      _addSelloLane(THREE, pivot, laneX + offsetX, bandW,
+        topMost + offsetY, bottomMost + offsetY, esq.band.opacity ?? 0.2, gap);
+    }
+  }
+
+  function _addSelloLane(THREE, pivot, xLeft, laneW, top, bottom, dimOpacity, gap) {
+    let tex, aspect;
+    if (_exSelloBitmap) {
+      tex = new THREE.Texture(_exSelloBitmap);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.needsUpdate = true;
+      aspect = (_exSelloBitmap.width || 1) / (_exSelloBitmap.height || 1);
+    } else {
+      tex = _selloPlaceholderTex(THREE);
+      aspect = 1;
+    }
+    const selloH = laneW / aspect;
+    if (!(selloH > 0)) return;
+    const centerY = (top + bottom) / 2;
+    const bandHalf = (top - bottom) / 2;
+    const pitch = selloH + (gap || 0);
+    _addSelloMesh(THREE, pivot, xLeft, centerY, laneW, selloH, tex, 1.0);
+    for (let k = 1; k <= 200; k++) {
+      const off = k * pitch;
+      if (off - selloH / 2 >= bandHalf) break;
+      _addSelloMesh(THREE, pivot, xLeft, centerY + off, laneW, selloH, tex, dimOpacity);
+      _addSelloMesh(THREE, pivot, xLeft, centerY - off, laneW, selloH, tex, dimOpacity);
+    }
+  }
+
+  function _addSelloMesh(THREE, pivot, xLeft, centerY, w, h, tex, opacity) {
+    const geo = _makeRoundedRect(THREE, w, h, 0, null);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.FrontSide, transparent: true, opacity });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(xLeft + w / 2, centerY, 0);
+    pivot.add(mesh);
+  }
+
+  function _selloPlaceholderTex(THREE) {
+    const s = 256;
+    const c = document.createElement('canvas');
+    c.width = s; c.height = s;
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#1a1a1a'; cx.fillRect(0, 0, s, s);
+    cx.strokeStyle = '#444'; cx.lineWidth = 4; cx.strokeRect(3, 3, s - 6, s - 6);
+    cx.fillStyle = '#f0a500';
+    cx.font = `bold ${Math.round(s * 0.16)}px sans-serif`;
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    cx.fillText('SELLO', s / 2, s / 2);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  // Grosor en mundo que equivale a `px` píxeles a la resolución del formato.
+  function _exBorderWorld(px, p) {
+    const visH = 2 * (p.camZ ?? 10) * Math.tan((45 * Math.PI / 180) / 2);
+    return (px / Math.max(1, _exFormatH)) * visH;
+  }
+
   function _addMesh(THREE, pivot, slot, x, centerY, w, h, p, getTexture) {
     const key = _exSkeletonId + ':' + _exSlotIndex;
     _exSlotIndex++;
     const r   = ((p.radius ?? 12) / 1000) * CELL_H;
-    // Imagen efectiva: vinculada al contenedor (clave) o índice del esqueleto.
-    const bound  = (typeof State !== 'undefined' && State.containerImages && State.containerImages[key]);
-    const imgKey = bound ? key : slot.n;
+    // Imagen efectiva: vinculada al ÍNDICE de imagen (formatId::n) o índice del
+    // esqueleto. Coincide con el editor (sustitución por imagen, no por hueco).
+    const bound  = (_exComp && _exComp.containerImages && _exComp.containerImages[slot.n]);
+    const imgKey = bound ? (_exFormatId + '::' + slot.n) : slot.n;
     const tex = getTexture({ n: imgKey, ratio: slot.ratio });
     // "Cover" + ajuste de encuadre por contenedor (igual que el editor). Sólo
     // en imágenes reales; los placeholders mantienen mapeo completo.
@@ -543,6 +660,15 @@ const Export = (() => {
       const iw = tex.image.width  || tex.image.naturalWidth;
       const ih = tex.image.height || tex.image.naturalHeight;
       if (iw && ih) coverUV = _coverUVAdjusted(w / h, iw / ih, key);
+    }
+    // Marco blanco (3 pt) detrás de las celdas marcadas frame (stacks a 100%).
+    if (slot.frame) {
+      const b    = _exBorderWorld(3, p);
+      const wGeo = _makeRoundedRect(THREE, w + 2 * b, h + 2 * b, r + b, null);
+      const wMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.FrontSide, transparent: true, opacity: 1 });
+      const wMesh = new THREE.Mesh(wGeo, wMat);
+      wMesh.position.set(x + w / 2, centerY, -0.002);
+      pivot.add(wMesh);
     }
     const geo = _makeRoundedRect(THREE, w, h, r, coverUV);
     const mat = new THREE.MeshBasicMaterial({
@@ -603,7 +729,7 @@ const Export = (() => {
   // Cover + ajuste de encuadre por contenedor (idéntico a mosaic-3d.js).
   function _coverUVAdjusted(holderAspect, imgAspect, key) {
     const base = _coverUV(holderAspect, imgAspect);
-    const adj  = (typeof State !== 'undefined' && State.imageAdjust) ? State.imageAdjust[key] : null;
+    const adj  = (_exComp && _exComp.imageAdjust) ? _exComp.imageAdjust[key] : null;
     if (!adj) return base;
     let uFrac = (base.uMax - base.uMin) / Math.max(1, adj.scale || 1);
     let vFrac = (base.vMax - base.vMin) / Math.max(1, adj.scale || 1);

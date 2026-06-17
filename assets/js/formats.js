@@ -72,20 +72,57 @@ const Formats = (() => {
     return State.activeFormatId ? getById(State.activeFormatId) : null;
   }
 
+  // Transform por defecto de una composición nueva (mismos valores que el
+  // estado inicial del editor).
+  function _defaultTransform() {
+    return { rotX: 35, rotY: 0, camX: 0, camY: 0, camZ: 10, gap: 8, radius: 12, colOffsets: [] };
+  }
+
+  // Devuelve (creando si hace falta) la composición de un formato.
+  function ensureComposition(id) {
+    if (!id) return null;
+    if (!State.compositions[id]) {
+      State.compositions[id] = {
+        skeletonId:      State.defaultSkeletonId || null,
+        transform:       _defaultTransform(),
+        imageAdjust:     {},
+        containerImages: {},
+        fitted:          false,
+      };
+    }
+    return State.compositions[id];
+  }
+
   function setActive(id) {
     const fmt = getById(id);
     if (!fmt) return;
     State.activeFormatId = id;
+
+    // Composición de ESTE formato + intercambio de punteros activos.
+    const comp = ensureComposition(id);
+    State.transform        = comp.transform;
+    State.imageAdjust      = comp.imageAdjust;
+    State.containerImages  = comp.containerImages;
+    State.activeSkeletonId = comp.skeletonId;
+
     _updateTrigger(fmt);
     _markSelectedOption(id);
-    Canvas.setFormat(fmt);
+    Canvas.setFormat(fmt);   // dimensiona lienzo + Mosaic3D.resize()
     if (typeof Overlays      !== 'undefined') Overlays.update();
     if (typeof Vignettes     !== 'undefined') Vignettes.update();
     if (typeof MosaicOpacity !== 'undefined') MosaicOpacity.update();
     if (typeof MosaicBlur    !== 'undefined') MosaicBlur.update();
     if (typeof Background    !== 'undefined') Background.update();
-    if (typeof Mosaic3D      !== 'undefined') Mosaic3D.setFormat(fmt);
-    if (typeof UI            !== 'undefined' && UI.updateOkButton) UI.updateOkButton();
+    // Aplica el mosaico + transform de este formato (auto-encuadre la 1ª vez,
+    // restaura el encuadre guardado las siguientes).
+    if (typeof Mosaic3D      !== 'undefined') Mosaic3D.applyFormat(comp);
+    // Etiqueta del botón de mosaico + sliders + offsets según este formato.
+    if (typeof Skeletons     !== 'undefined' && Skeletons.refreshActiveLabel) Skeletons.refreshActiveLabel();
+    if (typeof UI            !== 'undefined') {
+      if (UI.syncTransformSliders) UI.syncTransformSliders();
+      if (UI.renderColOffsets)     UI.renderColOffsets();
+      if (UI.updateOkButton)       UI.updateOkButton();
+    }
   }
 
   // ── PRIVADAS ──────────────────────────────────────────────
@@ -137,5 +174,5 @@ const Formats = (() => {
     });
   }
 
-  return { init, getAll, getById, getActive, setActive };
+  return { init, getAll, getById, getActive, setActive, ensureComposition };
 })();
