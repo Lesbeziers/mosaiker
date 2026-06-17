@@ -381,7 +381,7 @@ const Skeletons = (() => {
     // ─────────────────────────────────────────────────────
     fantasia: {
       id:   'fantasia',
-      name: 'IRREGULAR',
+      name: 'FOTOGRAMAS', // pensado para fotogramas (no carátulas): el recorte no rompe nada
       type: 'free',
       grid: { w: 10, h: 6 },
       cells: [
