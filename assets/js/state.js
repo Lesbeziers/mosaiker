@@ -102,6 +102,11 @@ const State = {
   // lo que se muestra como thumbnail en VER TODAS.
   formatSnapshots: {},
 
+  // Grupos de celdas ("contenedor virtual") del formato activo. PUNTERO a la
+  // composición activa (lo sincroniza Formats.setActive), igual que imageAdjust.
+  // Cada grupo: { id, cells:[key], image, cacheKey, transform:{dx,dy,scale} }.
+  groups: [],
+
   // UI
   showImagePrefixes: false, // toggle "MOSTRAR PREFIJOS" del sidebar
 };

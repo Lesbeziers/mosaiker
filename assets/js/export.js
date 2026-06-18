@@ -246,10 +246,12 @@ const Export = (() => {
     // Imágenes vinculadas por contenedor, con clave (formatId::slotKey) de TODAS
     // las composiciones (cada formato puede tener las suyas).
     const boundKeys = [];
+    const groupKeys = [];
     Object.entries(State.compositions || {}).forEach(([fid, c]) => {
       Object.keys(c.containerImages || {}).forEach(k => boundKeys.push(fid + '::' + k));
+      (c.groups || []).forEach(g => { if (g.cacheKey) groupKeys.push(g.cacheKey); });
     });
-    for (const k of [...numbers, ...boundKeys]) {
+    for (const k of [...numbers, ...boundKeys, ...groupKeys]) {
       const file = Images.getOriginalFile(k);
       if (!file) continue;
       try {
@@ -388,6 +390,8 @@ const Export = (() => {
       if (esq.type === 'vcolumns')_buildVColumns(THREE, pivot, esq, p, getTexture);
       if (esq.type === 'free')    _buildFree   (THREE, pivot, esq, p, getTexture);
       if (esq.type === 'stacks')  _buildStacks (THREE, pivot, esq, p, getTexture);
+      // Contenedores virtuales (grupos): reparte su imagen sobre el bbox.
+      _applyGroupsExport(THREE, pivot, comp, getTexture, p);
     }
 
     // Render
@@ -749,7 +753,71 @@ const Export = (() => {
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x + w / 2, centerY, 0);
+    mesh.userData.slot = { key, w, h };   // para el reparto de grupos
     pivot.add(mesh);
+  }
+
+  // Cover de un bounding box con el transform del grupo (igual que el editor).
+  function _coverUVForBox(boxAspect, imgAspect, transform) {
+    const base = _coverUV(boxAspect, imgAspect);
+    const adj  = transform || null;
+    let uFrac = base.uMax - base.uMin;
+    let vFrac = base.vMax - base.vMin;
+    if (!adj) return base;
+    const s = Math.max(1, adj.scale || 1);
+    uFrac /= s; vFrac /= s;
+    let cu = 0.5 + (adj.dx || 0);
+    let cv = 0.5 + (adj.dy || 0);
+    cu = Math.min(Math.max(cu, uFrac / 2), 1 - uFrac / 2);
+    cv = Math.min(Math.max(cv, vFrac / 2), 1 - vFrac / 2);
+    return { uMin: cu - uFrac / 2, uMax: cu + uFrac / 2, vMin: cv - vFrac / 2, vMax: cv + vFrac / 2 };
+  }
+
+  // Reparto de los "contenedores virtuales" (grupos) en el export: mismo
+  // algoritmo que Mosaic3D._applyGroups, sobre los meshes ya colocados.
+  function _applyGroupsExport(THREE, pivot, comp, getTexture, p) {
+    const groups = comp && comp.groups;
+    if (!groups || !groups.length) return;
+    const meshByKey = {};
+    pivot.children.forEach(o => { if (o.userData && o.userData.slot && o.userData.slot.key) meshByKey[o.userData.slot.key] = o; });
+
+    groups.forEach(g => {
+      const cells = (g.cells || []).map(k => meshByKey[k]).filter(Boolean);
+      if (!cells.length) return;
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      cells.forEach(m => {
+        const s = m.userData.slot;
+        minX = Math.min(minX, m.position.x - s.w / 2);
+        maxX = Math.max(maxX, m.position.x + s.w / 2);
+        minY = Math.min(minY, m.position.y - s.h / 2);
+        maxY = Math.max(maxY, m.position.y + s.h / 2);
+      });
+      const bw = maxX - minX, bh = maxY - minY;
+      if (!(bw > 0 && bh > 0)) return;
+
+      const tex = getTexture({ n: g.cacheKey, ratio: 'group' });
+      if (!(tex && tex.userData && tex.userData.real && tex.image)) return; // sin imagen → celdas como están
+      const iw = tex.image.width || tex.image.naturalWidth;
+      const ih = tex.image.height || tex.image.naturalHeight;
+      if (!(iw && ih)) return;
+      const adjUV = _coverUVForBox(bw / bh, iw / ih, g.transform);
+      const r = ((p.radius ?? 12) / 1000) * CELL_H;
+
+      cells.forEach(m => {
+        const s = m.userData.slot;
+        const un0 = (m.position.x - s.w / 2 - minX) / bw;
+        const un1 = (m.position.x + s.w / 2 - minX) / bw;
+        const vn0 = (m.position.y - s.h / 2 - minY) / bh;
+        const vn1 = (m.position.y + s.h / 2 - minY) / bh;
+        const U = t => adjUV.uMin + t * (adjUV.uMax - adjUV.uMin);
+        const V = t => adjUV.vMin + t * (adjUV.vMax - adjUV.vMin);
+        const coverUV = { uMin: U(un0), uMax: U(un1), vMin: V(vn0), vMax: V(vn1) };
+        const newGeo = _makeRoundedRect(THREE, s.w, s.h, r, coverUV);
+        if (m.geometry) m.geometry.dispose();
+        m.geometry = newGeo;
+        m.material.map = tex; m.material.needsUpdate = true;
+      });
+    });
   }
 
   function _makeRoundedRect(THREE, w, h, r, coverUV) {

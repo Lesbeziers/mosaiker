@@ -64,6 +64,8 @@ const Mosaic3D = (() => {
                              // ayudas de edición (índices + resalte amarillo)
   let _dropHintKey  = null;  // contenedor resaltado al arrastrar un archivo encima
   let _pulseRAF     = 0;     // bucle de animación del parpadeo de la pista de drop
+  let _selectedKeys = new Set(); // celdas seleccionadas (shift+clic) — transitorio
+  let _groupSeq     = 1;     // contador para ids de grupo de celdas
 
   // ── INICIALIZACIÓN ───────────────────────────────────────
 
@@ -293,6 +295,11 @@ const Mosaic3D = (() => {
     } else if (activeSkeleton.type === 'free') {
       _buildFree(activeSkeleton);
     }
+
+    // Post-proceso: contenedores virtuales (grupos de celdas que comparten una
+    // imagen repartida sobre su bounding box). Se hace tras colocar las celdas
+    // porque necesita sus posiciones para calcular el bbox.
+    _applyGroups();
   }
 
   function _buildGrid(esq) {
@@ -651,7 +658,8 @@ const Mosaic3D = (() => {
     // estático de la carátula con la que se interactúa.
     const isDropHint = !_capturing && _dropHintKey && slotKey === _dropHintKey;
     const isFocus    = !_capturing && !_dropHintKey && slotKey === _highlightKey;
-    if (isDropHint || isFocus) {
+    const isSelected = !_capturing && _selectedKeys.has(slotKey);
+    if (isDropHint || isFocus || isSelected) {
       const hb   = _borderWorld(3);
       const hGeo = _makeRoundedRect(w + 2 * hb, h + 2 * hb, r + hb, null);
       const hMat = new THREE.MeshBasicMaterial({ color: 0xf0a500, side: THREE.FrontSide, transparent: true, opacity: 1 });
@@ -1057,6 +1065,14 @@ const Mosaic3D = (() => {
   // Escala la imagen del contenedor por un factor (rueda). Crece/encoge desde
   // el centro del encuadre actual. Acotado a [1, 3] (100%–300%).
   function scaleByFactor(key, factor) {
+    // Si la celda pertenece a un grupo, escala la imagen del GRUPO entero.
+    const g = _groupForKey(key);
+    if (g) {
+      if (!g.transform) g.transform = { dx: 0, dy: 0, scale: 1 };
+      g.transform.scale = Math.min(3, Math.max(1, (g.transform.scale || 1) * factor));
+      rebuild();
+      return;
+    }
     const adj = _adjFor(key);
     adj.scale = Math.min(3, Math.max(1, (adj.scale || 1) * factor));
     _highlightKey = key;   // foco en la carátula que se escala
@@ -1066,6 +1082,30 @@ const Mosaic3D = (() => {
   // Desplaza el encuadre según un delta en PÍXELES de PANTALLA (arrastre).
   // Convierte px pantalla → mundo → UV, compensando la inclinación (rotX).
   function panByScreen(key, dxPx, dyPx) {
+    // Si la celda pertenece a un grupo, mueve la imagen del GRUPO dentro de su
+    // bbox (cada celda recompone su trozo en el rebuild).
+    const gr = _groupForKey(key);
+    if (gr) {
+      if (!camera || !renderer) return;
+      if (!gr.transform) gr.transform = { dx: 0, dy: 0, scale: 1 };
+      const gadj = gr.transform;
+      const gimg = (typeof Images !== 'undefined') ? Images.getImage(gr.cacheKey) : null;
+      if (!gimg) return;
+      const giw = gimg.naturalWidth || gimg.width, gih = gimg.naturalHeight || gimg.height;
+      const gbw = gr._bw || 1, gbh = gr._bh || 1;
+      const grect = renderer.domElement.getBoundingClientRect();
+      const gvisH = 2 * params.camZ * Math.tan((camera.fov * Math.PI / 180) / 2);
+      const gWorldPerPx = gvisH / Math.max(1, grect.height);
+      const gbase = _coverUV(gbw / gbh, giw / gih);
+      const gs = Math.max(1, gadj.scale || 1);
+      const guFrac = (gbase.uMax - gbase.uMin) / gs;
+      const gvFrac = (gbase.vMax - gbase.vMin) / gs;
+      const gcosX = Math.max(0.2, Math.cos(params.rotX * Math.PI / 180));
+      gadj.dx -= dxPx * gWorldPerPx * (guFrac / gbw);
+      gadj.dy += (dyPx * gWorldPerPx / gcosX) * (gvFrac / gbh);
+      rebuild();
+      return;
+    }
     const mesh = _meshByKey(key);
     if (!mesh || !camera || !renderer) return;
     const adj = _adjFor(key);
@@ -1094,10 +1134,163 @@ const Mosaic3D = (() => {
     rebuild();
   }
 
+  // ── CONTENEDOR VIRTUAL (grupos de celdas con imagen compartida) ──────
+
+  // Cover de un bounding box (igual que _coverUVAdjusted pero con el transform
+  // dado en vez de leerlo de State.imageAdjust[key]).
+  function _coverUVForBox(boxAspect, imgAspect, transform) {
+    const base = _coverUV(boxAspect, imgAspect);
+    const adj  = transform || null;
+    let uFrac = base.uMax - base.uMin;
+    let vFrac = base.vMax - base.vMin;
+    if (!adj) return base;
+    const s = Math.max(1, adj.scale || 1);
+    uFrac /= s; vFrac /= s;
+    let cu = 0.5 + (adj.dx || 0);
+    let cv = 0.5 + (adj.dy || 0);
+    cu = Math.min(Math.max(cu, uFrac / 2), 1 - uFrac / 2);
+    cv = Math.min(Math.max(cv, vFrac / 2), 1 - vFrac / 2);
+    return { uMin: cu - uFrac / 2, uMax: cu + uFrac / 2, vMin: cv - vFrac / 2, vMax: cv + vFrac / 2 };
+  }
+
+  // Tras _build(): para cada grupo, calcula el bbox de sus celdas y reparte la
+  // imagen del grupo recomputando el UV de cada celda (su trozo) + su textura.
+  function _applyGroups() {
+    const groups = (typeof State !== 'undefined' && State.groups) ? State.groups : null;
+    if (!groups || !groups.length) return;
+
+    const meshByKey = {};
+    pivot.children.forEach(o => { if (o.userData && o.userData.slot) meshByKey[o.userData.slot.key] = o; });
+
+    groups.forEach(g => {
+      const cells = (g.cells || []).map(k => meshByKey[k]).filter(Boolean);
+      if (!cells.length) return;
+
+      // Bounding box en espacio de layout (mesh.position = centro; w/h del slot)
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      cells.forEach(m => {
+        const s = m.userData.slot;
+        minX = Math.min(minX, m.position.x - s.w / 2);
+        maxX = Math.max(maxX, m.position.x + s.w / 2);
+        minY = Math.min(minY, m.position.y - s.h / 2);
+        maxY = Math.max(maxY, m.position.y + s.h / 2);
+      });
+      const bw = maxX - minX, bh = maxY - minY;
+      if (!(bw > 0 && bh > 0)) return;
+      g._bw = bw; g._bh = bh;   // bbox en mundo (transient) — lo usan los gestos
+
+      const img = (typeof Images !== 'undefined') ? Images.getImage(g.cacheKey) : null;
+      let adjUV = null, tex = null;
+      if (img) {
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (iw && ih) adjUV = _coverUVForBox(bw / bh, iw / ih, g.transform);
+        tex = _getOrCreateTexture({ n: g.cacheKey, ratio: 'group' });
+      }
+
+      cells.forEach(m => {
+        const s = m.userData.slot;
+        // Fracciones normalizadas de la celda dentro del bbox (v en mundo-arriba)
+        const un0 = (m.position.x - s.w / 2 - minX) / bw;
+        const un1 = (m.position.x + s.w / 2 - minX) / bw;
+        const vn0 = (m.position.y - s.h / 2 - minY) / bh;
+        const vn1 = (m.position.y + s.h / 2 - minY) / bh;
+        let coverUV = null;
+        if (adjUV) {
+          const U = t => adjUV.uMin + t * (adjUV.uMax - adjUV.uMin);
+          const V = t => adjUV.vMin + t * (adjUV.vMax - adjUV.vMin);
+          coverUV = { uMin: U(un0), uMax: U(un1), vMin: V(vn0), vMax: V(vn1) };
+        }
+        const r = (params.radius / 1000) * CELL_H;
+        const newGeo = _makeRoundedRect(s.w, s.h, r, coverUV);
+        if (m.geometry) m.geometry.dispose();
+        m.geometry = newGeo;
+        if (tex) { m.material.map = tex; m.material.needsUpdate = true; }
+        m.userData.slot.group = g.id;   // marca para picking/gestos (F2)
+        // Oculta el badge de prefijo en celdas agrupadas
+        m.children.forEach(ch => { if (ch.userData && ch.userData.isPrefixBadge) ch.visible = false; });
+      });
+    });
+  }
+
+  // Grupo (contenedor virtual) al que pertenece una celda, o null.
+  function _groupForKey(key) {
+    const groups = (typeof State !== 'undefined' && State.groups) ? State.groups : null;
+    if (!groups) return null;
+    return groups.find(g => g.cells && g.cells.includes(key)) || null;
+  }
+  function getGroupIdOf(key) { const g = _groupForKey(key); return g ? g.id : null; }
+
+  // Saca una celda de su grupo (al soltarle una imagen suelta encima): "deshacer
+  // natural" sin comandos. Si el grupo se queda sin celdas, se elimina. No
+  // reconstruye aquí (lo hará el bind/refresh posterior). El bbox del grupo
+  // restante se recalcula solo en el próximo _applyGroups.
+  function removeKeyFromGroup(key) {
+    const g = _groupForKey(key);
+    if (!g) return false;
+    g.cells = g.cells.filter(k => k !== key);
+    if (!g.cells.length) {
+      const idx = State.groups.indexOf(g);
+      if (idx >= 0) State.groups.splice(idx, 1);
+    }
+    return true;
+  }
+
+  // ── SELECCIÓN DE CELDAS (shift+clic) ─────────────────────────────────
+  function toggleSelection(key) {
+    if (!key) return;
+    if (_selectedKeys.has(key)) _selectedKeys.delete(key);
+    else _selectedKeys.add(key);
+    rebuild();
+  }
+  function clearSelection() {
+    if (!_selectedKeys.size && !_highlightKey) return;
+    _selectedKeys.clear();
+    _highlightKey = null;
+    rebuild();
+  }
+  // Reemplaza la selección por las celdas dadas (clic normal = una sola).
+  function setSelection(keys) {
+    _selectedKeys = new Set(keys || []);
+    _highlightKey = null;          // la selección pasa a ser la fuente del foco
+    rebuild();
+  }
+  function getSelection() { return [..._selectedKeys]; }
+
+  // Crea un grupo con las celdas dadas y le vincula la imagen `file`.
+  // Una celda pertenece a un grupo como máximo (se retira de grupos previos).
+  function createGroup(keys, file) {
+    if (!keys || !keys.length || typeof State === 'undefined') return null;
+    if (!State.groups) State.groups = [];
+    const keySet = new Set(keys);
+    // Quita esas celdas de grupos previos y elimina grupos vacíos IN PLACE
+    // (no reasignar State.groups: rompería el puntero con comp.groups, y el
+    // export/guardado leen comp.groups).
+    State.groups.forEach(g => { g.cells = g.cells.filter(k => !keySet.has(k)); });
+    for (let i = State.groups.length - 1; i >= 0; i--) {
+      if (!State.groups[i].cells.length) State.groups.splice(i, 1);
+    }
+
+    // id = mayor existente + 1 (robusto al abrir proyectos con grupos guardados)
+    const existing = State.groups.map(g => parseInt(String(g.id || '').replace(/[^0-9]/g, ''), 10) || 0);
+    const id = 'g' + ((existing.length ? Math.max(...existing) : 0) + 1);
+    const cacheKey = (State.activeFormatId || 'fmt') + '::group::' + id;
+    const group = { id, cells: [...keys], image: file ? file.name : null, cacheKey, transform: { dx: 0, dy: 0, scale: 1 } };
+    State.groups.push(group);
+
+    if (file && typeof Images !== 'undefined' && Images.bindFileToContainer) {
+      Images.bindFileToContainer(file, cacheKey).then(() => refreshTextures()).catch(() => {});
+    } else {
+      rebuild();
+    }
+    return group;
+  }
+
   return {
     init, setSkeleton, setFormat, setTransform, setColOffset, resize, render, rebuild,
     fitToLienzo, refreshTextures, setPrefixesVisible, getTHREE,
     pickKeyAt, panByScreen, scaleByFactor, setHighlight, beginCapture, endCapture,
     setDropHint, clearDropHint, getContainerScreen, getIndexScreens, applyFormat,
+    toggleSelection, setSelection, clearSelection, getSelection, createGroup, getGroupIdOf, removeKeyFromGroup,
   };
 })();

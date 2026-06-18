@@ -30,6 +30,22 @@ const ImageAdjust = (() => {
   function _onDown(e) {
     if (State.view !== 'editor' || typeof Mosaic3D === 'undefined') return;
     const hit = Mosaic3D.pickKeyAt(e.clientX, e.clientY);
+    // Shift + clic izquierdo → añade/quita celda de la selección (no arrastra).
+    if (e.shiftKey && e.button === 0) {
+      if (hit && Mosaic3D.toggleSelection) Mosaic3D.toggleSelection(hit.key);
+      e.preventDefault();
+      return;
+    }
+    // Clic normal izq:
+    //  · sobre celda de un GRUPO → no inicia selección nueva (se va a mover el
+    //    grupo); limpia cualquier selección en curso.
+    //  · sobre celda suelta → la selección pasa a ser SOLO esa celda (semilla).
+    //  · sobre hueco vacío → deselecciona todo.
+    if (e.button === 0) {
+      const inGroup = hit && Mosaic3D.getGroupIdOf && Mosaic3D.getGroupIdOf(hit.key);
+      if (inGroup) { if (Mosaic3D.clearSelection) Mosaic3D.clearSelection(); }
+      else if (Mosaic3D.setSelection) Mosaic3D.setSelection(hit ? [hit.key] : []);
+    }
     if (!hit) { if (e.button === 0) Mosaic3D.setHighlight(null); return; }
     Mosaic3D.setHighlight(hit.key);          // foco amarillo en la carátula
     // Escalar arrastrando si: botón derecho, o CMD (Mac) / CTRL (Windows).
@@ -105,6 +121,24 @@ const ImageAdjust = (() => {
 
     const file = Array.from(files).find(f => /^image\//.test(f.type));
     const hit = Mosaic3D.pickKeyAt(e.clientX, e.clientY);
+    const selection = (Mosaic3D.getSelection) ? Mosaic3D.getSelection() : [];
+
+    // Soltar sobre una celda SELECCIONADA (con 2+ celdas) → crea el "contenedor
+    // virtual": la imagen se reparte sobre el bbox del grupo (cada celda su trozo).
+    // Con 1 sola celda seleccionada cae al comportamiento clásico (1 celda).
+    if (hit && file && selection.length >= 2 && selection.includes(hit.key) && Mosaic3D.createGroup) {
+      Mosaic3D.createGroup(selection, file);
+      Mosaic3D.clearSelection();
+      Mosaic3D.setHighlight(null);
+      return;
+    }
+
+    // Soltar una imagen suelta sobre una celda de un GRUPO → esa celda sale del
+    // grupo y recibe la imagen (deshacer natural: rellenas una a una las celdas
+    // que no quieres agrupadas). Sin comandos específicos.
+    if (hit && file && Mosaic3D.getGroupIdOf && Mosaic3D.getGroupIdOf(hit.key) && Mosaic3D.removeKeyFromGroup) {
+      Mosaic3D.removeKeyFromGroup(hit.key);
+    }
 
     // Sobre un hueco → vincular esa imagen a ESE contenedor (ignora el índice
     // del archivo). Sobre vacío → carga por índice (comportamiento clásico).

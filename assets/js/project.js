@@ -136,6 +136,20 @@ const Project = (() => {
     return out;
   }
 
+  // Imágenes de los "contenedores virtuales" (grupos de celdas). Cada grupo
+  // guarda su imagen bajo su cacheKey, igual que las vinculadas por contenedor.
+  function _groupEntries(data) {
+    const manifest = data.groupImages || {};
+    const out = [];
+    Object.entries(State.compositions || {}).forEach(([fid, c]) => {
+      (c.groups || []).forEach((g) => {
+        if (!g.cacheKey || !g.image) return;
+        out.push({ cacheKey: g.cacheKey, manifestPath: manifest[g.cacheKey] || null, prefix: 'group/' + _san(g.cacheKey) + '__' });
+      });
+    });
+    return out;
+  }
+
   // Fondos por formato desde State.backgroundImages (siempre presente).
   function _bgEntries(data) {
     const manifest = data.bgImages || {};
@@ -186,6 +200,13 @@ const Project = (() => {
       const bf = findFolder(manifestPath, prefix);
       if (!bf) { console.warn('[Mosaiker] Imagen vinculada ausente:', prefix); continue; }
       try { await Images.bindFileToContainer(bf, cacheKey); } catch (_) { console.warn('[Mosaiker] No se pudo revincular', cacheKey); }
+    }
+
+    // Imágenes de grupos (contenedores virtuales).
+    for (const { cacheKey, manifestPath, prefix } of _groupEntries(data)) {
+      const bf = findFolder(manifestPath, prefix);
+      if (!bf) { console.warn('[Mosaiker] Imagen de grupo ausente:', prefix); continue; }
+      try { await Images.bindFileToContainer(bf, cacheKey); } catch (_) { console.warn('[Mosaiker] No se pudo revincular grupo', cacheKey); }
     }
 
     // Fondos por formato.
@@ -251,6 +272,15 @@ const Project = (() => {
       const blob = await zip.file(name).async('blob');
       const f = new File([blob], name.split('/').pop(), { type: blob.type || 'image/jpeg' });
       try { await Images.bindFileToContainer(f, cacheKey); } catch (_) { console.warn('[Mosaiker] No se pudo revincular', cacheKey); }
+    }
+
+    // Imágenes de grupos (contenedores virtuales).
+    for (const { cacheKey, manifestPath, prefix } of _groupEntries(data)) {
+      const name = findZip(manifestPath, prefix);
+      if (!name) { console.warn('[Mosaiker] Imagen de grupo ausente en ZIP:', prefix); continue; }
+      const blob = await zip.file(name).async('blob');
+      const f = new File([blob], name.split('/').pop(), { type: blob.type || 'image/png' });
+      try { await Images.bindFileToContainer(f, cacheKey); } catch (_) { console.warn('[Mosaiker] No se pudo revincular grupo', cacheKey); }
     }
 
     // Fondos por formato.
@@ -539,6 +569,20 @@ const Project = (() => {
         });
       });
       data.boundImages = boundManifest;
+
+      // Imágenes de los grupos (contenedores virtuales) → /imagenes/group
+      const groupManifest = {};
+      Object.entries(State.compositions || {}).forEach(([fid, c]) => {
+        (c.groups || []).forEach(g => {
+          if (!g.cacheKey) return;
+          const file = Images.getOriginalFile(g.cacheKey);
+          if (!file) return;
+          const stored = 'group/' + g.cacheKey.replace(/[^a-z0-9]+/gi, '_') + '__' + file.name;
+          imgFolder.file(stored, file);
+          groupManifest[g.cacheKey] = stored;
+        });
+      });
+      data.groupImages = groupManifest;
 
       // Imágenes de fondo por formato → subcarpeta /imagenes/bg
       const bgManifest = {};

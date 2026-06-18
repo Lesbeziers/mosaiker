@@ -96,6 +96,7 @@ const Formats = (() => {
         transform:       _defaultTransform(),
         imageAdjust:     {},
         containerImages: {},
+        groups:          [],
         fitted:          false,
       };
     }
@@ -109,9 +110,11 @@ const Formats = (() => {
 
     // Composición de ESTE formato + intercambio de punteros activos.
     const comp = ensureComposition(id);
+    if (!comp.groups) comp.groups = [];   // compat composiciones antiguas
     State.transform        = comp.transform;
     State.imageAdjust      = comp.imageAdjust;
     State.containerImages  = comp.containerImages;
+    State.groups           = comp.groups;
     State.activeSkeletonId = comp.skeletonId;
 
     _updateTrigger(fmt);
