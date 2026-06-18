@@ -682,7 +682,7 @@ const Mosaic3D = (() => {
     // Se puede ocultar por formato (switch "Borde blanco" de la bottom-bar).
     if (slot.frame && _stacksBorderVisible()) {
       const b     = _borderWorld(3);
-      const wGeo  = _makeRoundedRect(w + 2 * b, h + 2 * b, r + b, null);
+      const wGeo  = _makeRoundedFrame(w + 2 * b, h + 2 * b, w, h, r + b, r);
       const wMat  = new THREE.MeshBasicMaterial({
         color:       0xffffff,
         side:        THREE.FrontSide,
@@ -917,6 +917,34 @@ const Mosaic3D = (() => {
     }
     geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     return geo;
+  }
+
+  // Traza un rectángulo redondeado centrado sobre un Shape/Path.
+  function _roundedRectPath(ctx, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    const x = -w / 2, y = -h / 2;
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y,     x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h,     x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y,         x + r, y);
+    ctx.closePath();
+  }
+
+  // Marco redondeado HUECO (anillo): rect exterior con un hueco interior, para
+  // que sólo se pinte el borde y no tape el centro de la celda. Imprescindible
+  // para que una imagen transparente deje ver el fondo y no el blanco del marco.
+  function _makeRoundedFrame(ow, oh, iw, ih, ro, ri) {
+    const shape = new THREE.Shape();
+    _roundedRectPath(shape, ow, oh, ro);
+    const hole = new THREE.Path();
+    _roundedRectPath(hole, iw, ih, ri);
+    shape.holes.push(hole);
+    return new THREE.ShapeGeometry(shape, 6);
   }
 
   function _makePlaceholder(isHoriz, n) {

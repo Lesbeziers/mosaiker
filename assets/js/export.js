@@ -714,8 +714,15 @@ const Export = (() => {
 
   // Grosor en mundo que equivale a `px` píxeles a la resolución del formato.
   function _exBorderWorld(px, p) {
-    const visH = 2 * (p.camZ ?? 10) * Math.tan((45 * Math.PI / 180) / 2);
-    return (px / Math.max(1, _exFormatH)) * visH;
+    // El borde es un concepto "de pantalla" (3 pt tal como se ve en el editor):
+    // el editor lo calcula como px / altura_del_lienzo * altura_visible. Para que
+    // el export se vea IGUAL hay que usar la MISMA referencia (la altura del lienzo
+    // en pantalla), no la resolución del formato — si no, en formatos grandes el
+    // borde sale proporcionalmente finísimo e irregular.
+    const lienzo = (typeof document !== 'undefined') ? document.getElementById('lienzo') : null;
+    const refH   = (lienzo && lienzo.clientHeight) ? lienzo.clientHeight : 600;
+    const visH   = 2 * (p.camZ ?? 10) * Math.tan((45 * Math.PI / 180) / 2);
+    return (px / refH) * visH;
   }
 
   function _addMesh(THREE, pivot, slot, x, centerY, w, h, p, getTexture) {
@@ -740,7 +747,7 @@ const Export = (() => {
     const borderOn = !(typeof State !== 'undefined' && State.stacksBorder && State.stacksBorder[_exFormatId] === false);
     if (slot.frame && borderOn) {
       const b    = _exBorderWorld(3, p);
-      const wGeo = _makeRoundedRect(THREE, w + 2 * b, h + 2 * b, r + b, null);
+      const wGeo = _makeRoundedFrame(THREE, w + 2 * b, h + 2 * b, w, h, r + b, r);
       const wMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.FrontSide, transparent: true, opacity: 1 });
       const wMesh = new THREE.Mesh(wGeo, wMat);
       wMesh.position.set(x + w / 2, centerY, -0.002);
@@ -851,6 +858,32 @@ const Export = (() => {
     }
     geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     return geo;
+  }
+
+  function _roundedRectPath(ctx, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    const x = -w / 2, y = -h / 2;
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y,     x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h,     x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y,         x + r, y);
+    ctx.closePath();
+  }
+
+  // Marco redondeado HUECO (anillo): sólo borde, centro hueco, para que una
+  // imagen transparente deje ver el fondo y no el blanco del marco.
+  function _makeRoundedFrame(THREE, ow, oh, iw, ih, ro, ri) {
+    const shape = new THREE.Shape();
+    _roundedRectPath(shape, ow, oh, ro);
+    const hole = new THREE.Path();
+    _roundedRectPath(hole, iw, ih, ri);
+    shape.holes.push(hole);
+    return new THREE.ShapeGeometry(shape, 6);
   }
 
   // Igual que mosaic-3d.js: recorta UV para cubrir el hueco sin deformar.
