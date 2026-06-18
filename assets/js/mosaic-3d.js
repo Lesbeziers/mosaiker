@@ -645,6 +645,13 @@ const Mosaic3D = (() => {
     return tex;
   }
 
+  // ¿Mostrar el marco blanco de las celdas (stacks) en el formato activo?
+  function _stacksBorderVisible() {
+    if (typeof State === 'undefined' || !State.stacksBorder) return true;
+    const v = State.stacksBorder[State.activeFormatId];
+    return v === undefined ? true : !!v;
+  }
+
   function _addMesh(slot, x, centerY, w, h) {
     const r = (params.radius / 1000) * CELL_H;
 
@@ -672,7 +679,8 @@ const Mosaic3D = (() => {
 
     // Marco blanco (3 pt) detrás de los holders marcados frame — sólo
     // las celdas a 100% de los esqueletos que lo piden (p.ej. stacks).
-    if (slot.frame) {
+    // Se puede ocultar por formato (switch "Borde blanco" de la bottom-bar).
+    if (slot.frame && _stacksBorderVisible()) {
       const b     = _borderWorld(3);
       const wGeo  = _makeRoundedRect(w + 2 * b, h + 2 * b, r + b, null);
       const wMat  = new THREE.MeshBasicMaterial({

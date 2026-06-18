@@ -102,6 +102,10 @@ const State = {
   // lo que se muestra como thumbnail en VER TODAS.
   formatSnapshots: {},
 
+  // Marco blanco de los mosaicos 'stacks' (ZIG-ZAG / +SELLO) por formato.
+  // clave = formatId, valor = boolean. Ausente o true = se muestra el marco.
+  stacksBorder: {},
+
   // Grupos de celdas ("contenedor virtual") del formato activo. PUNTERO a la
   // composición activa (lo sincroniza Formats.setActive), igual que imageAdjust.
   // Cada grupo: { id, cells:[key], image, cacheKey, transform:{dx,dy,scale} }.

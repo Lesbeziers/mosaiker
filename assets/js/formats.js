@@ -124,6 +124,7 @@ const Formats = (() => {
     if (typeof Vignettes     !== 'undefined') Vignettes.update();
     if (typeof MosaicOpacity !== 'undefined') MosaicOpacity.update();
     if (typeof MosaicBlur    !== 'undefined') MosaicBlur.update();
+    if (typeof StacksBorder  !== 'undefined') StacksBorder.update();
     if (typeof Background    !== 'undefined') Background.update();
     // Aplica el mosaico + transform de este formato (auto-encuadre la 1ª vez,
     // restaura el encuadre guardado las siguientes).

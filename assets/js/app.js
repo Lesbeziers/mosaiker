@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   Vignettes.init();
   MosaicOpacity.init();
   MosaicBlur.init();
+  StacksBorder.init();
   Background.init();
   Project.init();
   Export.init();

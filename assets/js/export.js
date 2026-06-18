@@ -736,7 +736,9 @@ const Export = (() => {
       if (iw && ih) coverUV = _coverUVAdjusted(w / h, iw / ih, key);
     }
     // Marco blanco (3 pt) detrás de las celdas marcadas frame (stacks a 100%).
-    if (slot.frame) {
+    // Respeta el switch "Borde blanco" por formato (State.stacksBorder).
+    const borderOn = !(typeof State !== 'undefined' && State.stacksBorder && State.stacksBorder[_exFormatId] === false);
+    if (slot.frame && borderOn) {
       const b    = _exBorderWorld(3, p);
       const wGeo = _makeRoundedRect(THREE, w + 2 * b, h + 2 * b, r + b, null);
       const wMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.FrontSide, transparent: true, opacity: 1 });

@@ -337,6 +337,7 @@ const Project = (() => {
     State.vignettes         = JSON.parse(JSON.stringify(data.vignettes || {}));
     State.mosaicOpacity     = { ...(data.mosaicOpacity    || {}) };
     State.mosaicBlur        = { ...(data.mosaicBlur       || {}) };
+    State.stacksBorder      = { ...(data.stacksBorder     || {}) };
     State.backgrounds       = { ...(data.backgrounds      || {}) };
     State.backgroundImages  = { ...(data.backgroundImages || {}) };
     State.formatsOk         = { ...(data.formatsOk        || {}) };
@@ -513,6 +514,7 @@ const Project = (() => {
       vignettes:       JSON.parse(JSON.stringify(State.vignettes)),
       mosaicOpacity:   { ...State.mosaicOpacity },
       mosaicBlur:      { ...State.mosaicBlur },
+      stacksBorder:    { ...State.stacksBorder },
       backgrounds:     { ...State.backgrounds },
       backgroundImages:{ ...State.backgroundImages },
       formatsOk:       { ...State.formatsOk },

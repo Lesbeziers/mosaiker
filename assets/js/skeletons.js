@@ -528,6 +528,8 @@ const Skeletons = (() => {
     _updateButtonLabel(esq);
     if (typeof Mosaic3D !== 'undefined') Mosaic3D.setSkeleton(esq);
     if (typeof UI       !== 'undefined' && UI.renderColOffsets) UI.renderColOffsets();
+    // El switch "Borde blanco" solo aparece en los mosaicos 'stacks'.
+    if (typeof StacksBorder !== 'undefined') StacksBorder.update();
   }
 
   // Actualiza la etiqueta del botón al esqueleto activo (lo usa Formats.setActive).
