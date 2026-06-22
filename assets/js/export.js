@@ -935,7 +935,7 @@ const Export = (() => {
     cx.fillText(`img_${String(n).padStart(2, '0')}`, pw / 2, ph / 2 - 22);
     cx.fillStyle = '#666';
     cx.font = `${Math.round(ph * 0.085)}px 'Apercu Movistar', sans-serif`;
-    cx.fillText(isHoriz ? '16:9' : '9:16', pw / 2, ph / 2 + 26);
+    cx.fillText(isHoriz ? '16:9' : '2:3', pw / 2, ph / 2 + 26);
     return new THREE.CanvasTexture(c);
   }
 
