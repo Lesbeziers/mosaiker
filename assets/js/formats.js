@@ -103,14 +103,65 @@ const Formats = (() => {
     return State.compositions[id];
   }
 
+  // Hereda en `dst` una copia INDEPENDIENTE de la composición `src` (la del
+  // formato del que venimos): mosaico + encuadre/estilo + encuadres por celda +
+  // imágenes vinculadas + grupos. Así, al entrar por primera vez a un formato,
+  // ves tu trabajo listo para readaptarlo, y puedes divergir sin tocar el
+  // original. Las imágenes viven por formato (formatId::n / formatId::group::id);
+  // se duplican en la caché a las claves del nuevo formato (asíncrono).
+  function _inheritFrom(dst, src, srcFid, dstFid) {
+    dst.skeletonId = src.skeletonId;
+    // Copia el encuadre/estilo, pero fitted=false → applyFormat reajusta la
+    // cámara (camX/Y/Z) al tamaño del nuevo formato, conservando rotación,
+    // separación, esquinas y offsets de columna.
+    dst.transform   = JSON.parse(JSON.stringify(src.transform || _defaultTransform()));
+    dst.fitted      = false;
+    dst.imageAdjust = JSON.parse(JSON.stringify(src.imageAdjust || {}));
+    dst.containerImages = { ...(src.containerImages || {}) };
+    dst.groups = (src.groups || []).map(g => ({
+      id:        g.id,
+      cells:     [...(g.cells || [])],
+      image:     g.image,
+      cacheKey:  dstFid + '::group::' + g.id,
+      transform: { ...(g.transform || { dx: 0, dy: 0, scale: 1 }) },
+    }));
+
+    // Duplica las entradas de caché de imágenes a las claves del nuevo formato.
+    if (typeof Images !== 'undefined' && Images.copyBinding) {
+      const jobs = [];
+      Object.keys(src.containerImages || {}).forEach(n => {
+        jobs.push(Images.copyBinding(srcFid + '::' + n, dstFid + '::' + n));
+      });
+      (src.groups || []).forEach(g => {
+        jobs.push(Images.copyBinding(g.cacheKey, dstFid + '::group::' + g.id));
+      });
+      if (jobs.length) {
+        Promise.all(jobs).then(() => {
+          // Solo refresca si seguimos en el formato heredado.
+          if (State.activeFormatId === dstFid && typeof Mosaic3D !== 'undefined' && Mosaic3D.refreshTextures) {
+            Mosaic3D.refreshTextures();
+          }
+        });
+      }
+    }
+  }
+
   function setActive(id) {
     const fmt = getById(id);
     if (!fmt) return;
+    const prevId    = State.activeFormatId;
+    const isNewComp = !State.compositions[id];
     State.activeFormatId = id;
 
     // Composición de ESTE formato + intercambio de punteros activos.
     const comp = ensureComposition(id);
     if (!comp.groups) comp.groups = [];   // compat composiciones antiguas
+
+    // Primera visita a este formato viniendo de otro con trabajo → hereda una
+    // copia (imágenes + encuadre + grupos) para readaptarla a este formato.
+    if (isNewComp && prevId && prevId !== id && State.compositions[prevId]) {
+      _inheritFrom(comp, State.compositions[prevId], prevId, id);
+    }
     State.transform        = comp.transform;
     State.imageAdjust      = comp.imageAdjust;
     State.containerImages  = comp.containerImages;

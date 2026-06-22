@@ -203,6 +203,12 @@ const Mosaic3D = (() => {
     if (typeof UI !== 'undefined' && UI.syncTransformSliders) {
       UI.syncTransformSliders();
     }
+
+    // Dibuja el resultado del encuadre. Imprescindible: al entrar a un formato
+    // NUEVO, applyFormat() llama aquí sin un render() posterior; sin esto el
+    // mosaico recién construido se encuadra pero no se pinta y la pantalla
+    // conserva el frame del formato anterior (se "arreglaba" al primer clic).
+    render();
   }
 
   function setTransform(updates) {

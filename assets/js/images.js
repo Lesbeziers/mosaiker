@@ -145,6 +145,34 @@ const Images = (() => {
     return p;
   }
 
+  // Copia una entrada de caché (vinculada o de grupo) de una clave a otra.
+  // Se usa al HEREDAR la composición de un formato en otro (cada formato guarda
+  // sus imágenes bajo "formatId::n" / "formatId::group::id"; al entrar a un
+  // formato nuevo se duplican para que pueda divergir sin tocar el original).
+  // OJO: se copia el bitmap (createImageBitmap), NO se comparte la referencia —
+  // al sustituir una imagen se hace display.close(), que liberaría el bitmap del
+  // otro formato si lo compartieran. Si la copia falla, se redecodifica del File.
+  function copyBinding(srcKey, dstKey) {
+    const p = (async () => {
+      const src = cache[srcKey];
+      if (!src || !src.display) return null;
+      let display = null;
+      try {
+        display = await createImageBitmap(src.display);
+      } catch (e) {
+        if (src.file) { try { return await bindFileToContainer(src.file, dstKey); } catch (_) {} }
+        return null;
+      }
+      const prev = cache[dstKey];
+      if (prev && prev.display && typeof prev.display.close === 'function') prev.display.close();
+      cache[dstKey] = { display, file: src.file, originalSize: src.originalSize };
+      return dstKey;
+    })();
+    pending.add(p);
+    p.finally(() => pending.delete(p));
+    return p;
+  }
+
   // Resuelve cuando no hay ningún loadFile en curso.
   // Se usa en el exportador para evitar disparar el render con cache "a medias".
   function whenIdle() {
@@ -210,6 +238,6 @@ const Images = (() => {
     if (typeof Mosaic3D !== 'undefined') Mosaic3D.refreshTextures();
   }
 
-  return { loadFile, loadFiles, bindFileToContainer, getImage, getOriginalFile, has, getLoadedNumbers, clear, whenIdle,
+  return { loadFile, loadFiles, bindFileToContainer, copyBinding, getImage, getOriginalFile, has, getLoadedNumbers, clear, whenIdle,
            getSello, getSelloFile, hasSello };
 })();
