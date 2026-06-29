@@ -21,59 +21,12 @@ const Project = (() => {
 
   // ── ABRIR PROYECTO ────────────────────────────────────────
 
+  // Abrir = SOLO desde carpeta (JSON + carpeta imagenes/ sueltos). El selector
+  // se abre directamente, sin modal de elección. Para reabrir un proyecto
+  // guardado en ZIP, primero se descomprime y se abre la carpeta resultante
+  // (esto permite además editar el JSON o cambiar/añadir assets a mano).
   function open() {
-    _showOpenModal();
-  }
-
-  function _showOpenModal() {
-    document.getElementById('project-open-modal')?.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'project-open-modal';
-    overlay.className = 'modal-overlay';
-    overlay.addEventListener('click', e => {
-      if (e.target === overlay) overlay.remove();
-    });
-
-    const modal  = document.createElement('div');
-    modal.className = 'modal';
-
-    const header = document.createElement('div');
-    header.className = 'modal-header';
-    header.textContent = 'Abrir proyecto';
-
-    const body = document.createElement('div');
-    body.className = 'modal-body';
-
-    const desc = document.createElement('p');
-    desc.className = 'modal-desc';
-    desc.textContent = 'Elige cómo quieres abrir el proyecto:';
-
-    const btnFolder = _makeModalOption(
-      'Desde carpeta',
-      'JSON + carpeta imagenes/ sueltos',
-      () => { overlay.remove(); _openFromFolder(); }
-    );
-
-    const btnZip = _makeModalOption(
-      'Desde archivo ZIP',
-      'Archivo .mosaiker.zip empaquetado',
-      () => { overlay.remove(); _openFromZip(); }
-    );
-
-    const btnCancel = document.createElement('button');
-    btnCancel.className = 'modal-cancel';
-    btnCancel.textContent = 'Cancelar';
-    btnCancel.addEventListener('click', () => overlay.remove());
-
-    body.appendChild(desc);
-    body.appendChild(btnFolder);
-    body.appendChild(btnZip);
-    body.appendChild(btnCancel);
-    modal.appendChild(header);
-    modal.appendChild(body);
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
+    _openFromFolder();
   }
 
   function _openFromFolder() {
@@ -92,23 +45,6 @@ const Project = (() => {
       } catch (err) {
         console.error('[Mosaiker] Error abriendo carpeta:', err);
         alert('No se pudo abrir la carpeta:\n' + (err.message || err));
-      }
-    });
-    input.click();
-  }
-
-  function _openFromZip() {
-    const input = document.createElement('input');
-    input.type   = 'file';
-    input.accept = '.zip';
-    input.addEventListener('change', async e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      try {
-        await _loadZip(file);
-      } catch (err) {
-        console.error('[Mosaiker] Error abriendo ZIP:', err);
-        alert('No se pudo abrir el ZIP:\n' + (err.message || err));
       }
     });
     input.click();
@@ -228,95 +164,6 @@ const Project = (() => {
     }
 
     console.log(`[Mosaiker] Proyecto cargado desde carpeta: ${data.projectName} (${imageFiles.length}/${needed.size} imágenes)`);
-  }
-
-  async function _loadZip(file) {
-    if (typeof JSZip === 'undefined') throw new Error('JSZip no está cargado');
-
-    const zip = await JSZip.loadAsync(file);
-
-    // Localiza el JSON dentro del ZIP (debe estar en la raíz)
-    const jsonName = Object.keys(zip.files).find(n => n.endsWith('.json') && !n.includes('/'));
-    if (!jsonName) throw new Error('El ZIP no contiene un archivo JSON de proyecto');
-
-    const data = JSON.parse(await zip.file(jsonName).async('string'));
-    _validate(data);
-
-    // Reconstruye los archivos de imagen desde el ZIP
-    const imagesMap = data.images || {};
-    const files = [];
-    for (const filename of Object.values(imagesMap)) {
-      const entry = zip.file('imagenes/' + filename);
-      if (!entry) {
-        console.warn(`[Mosaiker] Imagen ausente en ZIP: ${filename}`);
-        continue;
-      }
-      const blob = await entry.async('blob');
-      files.push(new File([blob], filename, { type: blob.type || 'image/jpeg' }));
-    }
-
-    // Limpia cache anterior y aplica estado
-    if (typeof Images !== 'undefined') Images.clear();
-    _applyState(data);
-
-    // Localiza una entrada del ZIP por manifest (atajo) o por prefijo de clave.
-    const findZip = (manifestPath, prefix) => {
-      if (manifestPath && zip.file('imagenes/' + manifestPath)) return 'imagenes/' + manifestPath;
-      return Object.keys(zip.files).find(n => n.indexOf('imagenes/' + prefix) !== -1 && !zip.files[n].dir) || null;
-    };
-
-    // Imágenes vinculadas por contenedor (emparejadas por clave, no por nombre).
-    for (const { cacheKey, manifestPath, prefix } of _boundEntries(data)) {
-      const name = findZip(manifestPath, prefix);
-      if (!name) { console.warn('[Mosaiker] Imagen vinculada ausente en ZIP:', prefix); continue; }
-      const blob = await zip.file(name).async('blob');
-      const f = new File([blob], name.split('/').pop(), { type: blob.type || 'image/jpeg' });
-      try { await Images.bindFileToContainer(f, cacheKey); } catch (_) { console.warn('[Mosaiker] No se pudo revincular', cacheKey); }
-    }
-
-    // Imágenes de grupos (contenedores virtuales).
-    for (const { cacheKey, manifestPath, prefix } of _groupEntries(data)) {
-      const name = findZip(manifestPath, prefix);
-      if (!name) { console.warn('[Mosaiker] Imagen de grupo ausente en ZIP:', prefix); continue; }
-      const blob = await zip.file(name).async('blob');
-      const f = new File([blob], name.split('/').pop(), { type: blob.type || 'image/png' });
-      try { await Images.bindFileToContainer(f, cacheKey); } catch (_) { console.warn('[Mosaiker] No se pudo revincular grupo', cacheKey); }
-    }
-
-    // Fondos por formato.
-    for (const { fid, manifestPath, prefix } of _bgEntries(data)) {
-      const name = findZip(manifestPath, prefix);
-      if (!name) { console.warn('[Mosaiker] Imagen de fondo ausente en ZIP:', prefix); continue; }
-      const blob = await zip.file(name).async('blob');
-      const f = new File([blob], name.split('/').pop(), { type: blob.type || 'image/jpeg' });
-      if (typeof Background !== 'undefined') Background.setImageFileFor(fid, f);
-    }
-    if (typeof Background !== 'undefined') Background.update();
-
-    // Sello (imagen global): por data.sello o, si falta, buscando en imagenes/sello/.
-    let selloPath = data.sello;
-    if (!selloPath) {
-      const k = Object.keys(zip.files).find(n => n.indexOf('imagenes/sello/') !== -1 && !zip.files[n].dir);
-      if (k) selloPath = k.slice(k.indexOf('imagenes/') + 'imagenes/'.length);
-    }
-    if (selloPath) {
-      const entry = zip.file('imagenes/' + selloPath);
-      if (entry) {
-        const blob = await entry.async('blob');
-        files.push(new File([blob], selloPath.split('/').pop(), { type: blob.type || 'image/png' }));
-      } else {
-        console.warn('[Mosaiker] Sello ausente en ZIP:', selloPath);
-      }
-    }
-
-    // Carga las imágenes por índice (esto dispara un refresh final del mosaico)
-    if (files.length > 0 && typeof Images !== 'undefined') {
-      await Images.loadFiles(files);
-    } else if (typeof Mosaic3D !== 'undefined') {
-      Mosaic3D.refreshTextures();
-    }
-
-    console.log(`[Mosaiker] Proyecto cargado: ${data.projectName} (${files.length} imágenes)`);
   }
 
   function _validate(data) {
