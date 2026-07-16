@@ -8,11 +8,12 @@
        el CSS/JS nuevo tras cada despliegue (evita que el equipo se quede con una
        versión vieja cacheada). Súbelo (buscar y reemplazar ?v=) en cada release
        que toque assets. -->
-  <link rel="stylesheet" href="assets/css/base.css?v=20260622" />
-  <link rel="stylesheet" href="assets/css/layout.css?v=20260622" />
-  <link rel="stylesheet" href="assets/css/ui.css?v=20260622" />
-  <link rel="stylesheet" href="assets/css/panel.css?v=20260622" />
-  <link rel="stylesheet" href="assets/css/bottombar.css?v=20260622" />
+  <link rel="stylesheet" href="assets/css/base.css?v=20260716d" />
+  <link rel="stylesheet" href="assets/css/layout.css?v=20260716d" />
+  <link rel="stylesheet" href="assets/css/ui.css?v=20260716d" />
+  <link rel="stylesheet" href="assets/css/panel.css?v=20260716d" />
+  <link rel="stylesheet" href="assets/css/bottombar.css?v=20260716d" />
+  <link rel="stylesheet" href="assets/css/layers.css?v=20260716d" />
 </head>
 <body>
 
@@ -136,6 +137,22 @@
           </div>
         </section>
 
+        <!-- CAPAS -->
+        <section class="panel-section" id="section-capas">
+          <div class="panel-section-title capas-title" id="capas-header">
+            <span>Capas</span>
+            <span class="capas-chevron">▾</span>
+          </div>
+          <div id="section-capas-body">
+            <div id="capas-list"></div>
+            <div id="capas-toolbar">
+              <button id="capas-add" class="capas-tool" title="Importar imagen"></button>
+              <button id="capas-dup" class="capas-tool" title="Duplicar capa"></button>
+              <button id="capas-del" class="capas-tool" title="Borrar capa"></button>
+            </div>
+          </div>
+        </section>
+
         <!-- VIGNETTE -->
         <section class="panel-section" id="section-vignette">
           <div class="panel-section-title">Vignette</div>
@@ -165,6 +182,7 @@
       <div id="canvas-area">
         <button id="btn-canvas-ok">OK</button>
         <div id="lienzo">
+          <div id="capas-layer"></div>
           <div id="lienzo-label"></div>
         </div>
       </div>
@@ -185,24 +203,25 @@
 
 <div id="custom-tooltip"></div>
 
-<script src="assets/js/jszip.min.js?v=20260622"></script>
-<script src="assets/js/state.js?v=20260622"></script>
-<script src="assets/js/canvas.js?v=20260622"></script>
-<script src="assets/js/overlays.js?v=20260622"></script>
-<script src="assets/js/vignettes.js?v=20260622"></script>
-<script src="assets/js/mosaic-opacity.js?v=20260622"></script>
-<script src="assets/js/mosaic-blur.js?v=20260622"></script>
-<script src="assets/js/stacks-border.js?v=20260622"></script>
-<script src="assets/js/background.js?v=20260622"></script>
-<script src="assets/js/image-adjust.js?v=20260622"></script>
-<script src="assets/js/formats.js?v=20260622"></script>
-<script src="assets/js/images.js?v=20260622"></script>
-<script src="assets/js/mosaic-3d.js?v=20260622"></script>
-<script src="assets/js/skeletons.js?v=20260622"></script>
-<script src="assets/js/project.js?v=20260622"></script>
-<script src="assets/js/export.js?v=20260622"></script>
-<script src="assets/js/ui.js?v=20260622"></script>
-<script src="assets/js/app.js?v=20260622"></script>
+<script src="assets/js/jszip.min.js?v=20260716d"></script>
+<script src="assets/js/state.js?v=20260716d"></script>
+<script src="assets/js/canvas.js?v=20260716d"></script>
+<script src="assets/js/overlays.js?v=20260716d"></script>
+<script src="assets/js/vignettes.js?v=20260716d"></script>
+<script src="assets/js/mosaic-opacity.js?v=20260716d"></script>
+<script src="assets/js/mosaic-blur.js?v=20260716d"></script>
+<script src="assets/js/stacks-border.js?v=20260716d"></script>
+<script src="assets/js/background.js?v=20260716d"></script>
+<script src="assets/js/image-adjust.js?v=20260716d"></script>
+<script src="assets/js/formats.js?v=20260716d"></script>
+<script src="assets/js/images.js?v=20260716d"></script>
+<script src="assets/js/mosaic-3d.js?v=20260716d"></script>
+<script src="assets/js/skeletons.js?v=20260716d"></script>
+<script src="assets/js/layers.js?v=20260716d"></script>
+<script src="assets/js/project.js?v=20260716d"></script>
+<script src="assets/js/export.js?v=20260716d"></script>
+<script src="assets/js/ui.js?v=20260716d"></script>
+<script src="assets/js/app.js?v=20260716d"></script>
 
 </body>
 </html>

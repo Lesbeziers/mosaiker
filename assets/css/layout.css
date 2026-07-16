@@ -154,7 +154,7 @@
   height: 100%;
   pointer-events: none;
   user-select: none;
-  z-index: 2;
+  z-index: 3;   /* guías de validación por encima de los logos (z-index 2) */
 }
 
 #lienzo-label {

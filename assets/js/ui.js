@@ -31,22 +31,32 @@ const UI = (() => {
 
     let timer = null;
 
+    // Posiciona el tooltip sobre el cursor, ACOTADO al viewport (si no, cerca
+    // de un borde se sale del marco de la ventana y no se lee).
+    const _place = (cx, cy) => {
+      const w = tooltip.offsetWidth, h = tooltip.offsetHeight;
+      let left = cx - w / 2;
+      left = Math.max(6, Math.min(left, window.innerWidth - w - 6));
+      let top = cy - h - 10;          // encima del cursor
+      if (top < 6) top = cy + 20;     // si no cabe arriba, debajo
+      tooltip.style.left = left + 'px';
+      tooltip.style.top  = top + 'px';
+    };
+
     document.addEventListener('mouseover', e => {
       const el = e.target.closest('[data-tooltip]');
       if (!el) return;
       clearTimeout(timer);
       timer = setTimeout(() => {
         tooltip.textContent = el.dataset.tooltip;
-        tooltip.style.left = (e.clientX - tooltip.offsetWidth / 2) + 'px';
-        tooltip.style.top  = (e.clientY - 32) + 'px';
-        tooltip.classList.add('visible');
+        tooltip.classList.add('visible');   // visible antes de medir para tener offsetWidth/Height
+        _place(e.clientX, e.clientY);
       }, 300);
     });
 
     document.addEventListener('mousemove', e => {
       if (!tooltip.classList.contains('visible')) return;
-      tooltip.style.left = (e.clientX - tooltip.offsetWidth / 2) + 'px';
-      tooltip.style.top  = (e.clientY - 32) + 'px';
+      _place(e.clientX, e.clientY);
     });
 
     document.addEventListener('mouseout', e => {

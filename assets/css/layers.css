@@ -1,0 +1,129 @@
+/* ============================================================
+   LAYERS.CSS — Panel CAPAS + capa de logos/imágenes sobre el lienzo
+   ============================================================ */
+
+/* ── Cabecera plegable ─────────────────────────────────────── */
+.capas-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+.capas-chevron {
+  color: var(--col-yellow);
+  font-size: 12px;
+  transition: transform .15s ease;
+}
+#section-capas.collapsed .capas-chevron { transform: rotate(-90deg); }
+#section-capas.collapsed #section-capas-body { display: none; }
+
+/* ── Lista de capas ────────────────────────────────────────── */
+#capas-list {
+  border: 1px solid var(--col-border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.capa-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  background: var(--col-surface);
+  border-bottom: 1px solid var(--col-border);
+  cursor: pointer;
+}
+.capa-row:last-child { border-bottom: none; }
+.capa-row:hover { background: #1e1e1e; }
+.capa-row.selected { background: #232323; }
+.capa-base { cursor: default; }
+
+.capa-eye {
+  flex: none;
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; padding: 0;
+  color: var(--col-text); cursor: pointer;
+}
+.capa-eye.off { color: #4a4a4a; }
+.capa-eye:hover { color: var(--col-yellow); }
+
+.capa-thumb {
+  flex: none;
+  width: 40px; height: 28px;
+  border-radius: 3px;
+  background: #0c0c0c;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 0 0 1px var(--col-border);
+}
+.capa-thumb img { max-width: 100%; max-height: 100%; display: block; }
+.capa-thumb svg { display: block; }
+
+.capa-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  letter-spacing: .03em;
+  color: var(--col-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.capa-row.selected .capa-name { color: var(--col-yellow); font-weight: 700; }
+.capa-base .capa-name { color: var(--col-text-muted); }
+
+/* ── Toolbar inferior ──────────────────────────────────────── */
+#capas-toolbar {
+  display: flex;
+  gap: 6px;
+}
+.capas-tool {
+  width: 30px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--col-surface);
+  border: 1px solid var(--col-border);
+  border-radius: 3px;
+  color: var(--col-text);
+  cursor: pointer;
+}
+.capas-tool:hover { border-color: var(--col-yellow); color: var(--col-yellow); }
+.capas-tool svg { width: 15px; height: 15px; }
+
+/* ── Capa sobre el lienzo ──────────────────────────────────── */
+#capas-layer {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;   /* los huecos dejan pasar el clic al mosaico */
+  z-index: 2;             /* encima del mosaico (0) y la viñeta (1) */
+}
+.capa-item {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: move;
+}
+.capa-item img {
+  width: 100%; height: 100%;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+.capa-item.selected {
+  outline: 1px dashed var(--col-yellow);
+  outline-offset: 0;
+}
+.capa-handle {
+  position: absolute;
+  width: 11px; height: 11px;
+  background: #fff;
+  border: 1.5px solid var(--col-yellow);
+  border-radius: 2px;
+  pointer-events: auto;
+}
+.capa-handle.tl { top: 0;    left: 0;    transform: translate(-50%, -50%); cursor: nwse-resize; }
+.capa-handle.tr { top: 0;    right: 0;   transform: translate( 50%, -50%); cursor: nesw-resize; }
+.capa-handle.bl { bottom: 0; left: 0;    transform: translate(-50%,  50%); cursor: nesw-resize; }
+.capa-handle.br { bottom: 0; right: 0;   transform: translate( 50%,  50%); cursor: nwse-resize; }

@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   MosaicBlur.init();
   StacksBorder.init();
   Background.init();
+  Layers.init();
   Project.init();
   Export.init();
   UI.init();

@@ -96,6 +96,20 @@ const Project = (() => {
     return out;
   }
 
+  // Capas-imagen (logos) desde las composiciones. Cada overlay guarda su imagen
+  // bajo su cacheKey (formatId::overlay::id), igual que grupos/vinculadas.
+  function _overlayEntries(data) {
+    const manifest = data.overlayImages || {};
+    const out = [];
+    Object.entries(State.compositions || {}).forEach(([fid, c]) => {
+      (c.overlays || []).forEach((o) => {
+        if (!o.cacheKey) return;
+        out.push({ cacheKey: o.cacheKey, manifestPath: manifest[o.cacheKey] || null, prefix: 'overlay/' + _san(o.cacheKey) + '__' });
+      });
+    });
+    return out;
+  }
+
   async function _loadFromFolder(files) {
     // Busca el primer JSON de proyecto Mosaiker dentro de la carpeta.
     // Si hay varios, nos quedamos con el primero que valide.
@@ -152,6 +166,13 @@ const Project = (() => {
     }
     if (typeof Background !== 'undefined') Background.update();
 
+    // Capas-imagen (logos): se registran como File (no van a la caché WebGL).
+    for (const { cacheKey, manifestPath, prefix } of _overlayEntries(data)) {
+      const bf = findFolder(manifestPath, prefix);
+      if (!bf) { console.warn('[Mosaiker] Imagen de capa ausente:', prefix); continue; }
+      if (typeof Layers !== 'undefined' && Layers.setFile) Layers.setFile(cacheKey, bf);
+    }
+
     // Sello (imagen global): por data.sello o, si falta, buscando en /imagenes/sello/.
     let selloFile = data.sello ? files.find(f => f.webkitRelativePath.includes('/imagenes/' + data.sello)) : null;
     if (!selloFile) selloFile = files.find(f => f.webkitRelativePath.includes('/imagenes/sello/'));
@@ -162,6 +183,10 @@ const Project = (() => {
     } else if (typeof Mosaic3D !== 'undefined') {
       Mosaic3D.refreshTextures();
     }
+
+    // Repinta el panel CAPAS y las capas-imagen del formato activo (sus binarios
+    // ya están revinculados arriba).
+    if (typeof Layers !== 'undefined' && Layers.update) Layers.update();
 
     console.log(`[Mosaiker] Proyecto cargado desde carpeta: ${data.projectName} (${imageFiles.length}/${needed.size} imágenes)`);
   }
@@ -393,6 +418,9 @@ const Project = (() => {
       return;
     }
 
+    const toast = _showSaveToast();
+    await new Promise(r => setTimeout(r, 0));   // deja pintar el toast antes del trabajo pesado
+
     const zip       = new JSZip();
     const data      = _serializeState();
     const imgFolder = zip.folder('imagenes');
@@ -433,6 +461,21 @@ const Project = (() => {
       });
       data.groupImages = groupManifest;
 
+      // Imágenes de las capas-imagen (logos) → subcarpeta /imagenes/overlay
+      const overlayManifest = {};
+      Object.entries(State.compositions || {}).forEach(([fid, c]) => {
+        (c.overlays || []).forEach(o => {
+          if (!o.cacheKey) return;
+          const file = (typeof Layers !== 'undefined' && Layers.getFile && Layers.getFile(o.cacheKey))
+            || Images.getOriginalFile(o.cacheKey);
+          if (!file) return;
+          const stored = 'overlay/' + o.cacheKey.replace(/[^a-z0-9]+/gi, '_') + '__' + file.name;
+          imgFolder.file(stored, file);
+          overlayManifest[o.cacheKey] = stored;
+        });
+      });
+      data.overlayImages = overlayManifest;
+
       // Imágenes de fondo por formato → subcarpeta /imagenes/bg
       const bgManifest = {};
       if (typeof Background !== 'undefined' && Background.getImageFile) {
@@ -463,8 +506,42 @@ const Project = (() => {
       type:        'blob',
       compression: 'DEFLATE',
       compressionOptions: { level: 6 },
-    });
+    }, (meta) => { if (toast) toast.update(meta.percent); });
+    if (toast) toast.close();
     _download(blob, name + '.mosaiker.zip');
+  }
+
+  // Toast de progreso mientras se empaqueta el ZIP (mismo estilo que el del
+  // export). El guardado tarda varios segundos con muchas imágenes; sin esto no
+  // hay feedback hasta que salta el diálogo de descarga.
+  function _showSaveToast() {
+    document.getElementById('save-progress')?.remove();
+    const el = document.createElement('div');
+    el.id = 'save-progress';
+    el.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;background:#161616;border:1px solid #2e2e2e;border-radius:4px;padding:12px 16px;min-width:260px;box-shadow:0 8px 24px rgba(0,0,0,0.6);font-family:var(--font);font-size:11px;color:#888;';
+    const title = document.createElement('div');
+    title.style.cssText = 'font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--col-yellow);margin-bottom:6px;font-size:10px;';
+    title.textContent = 'Guardando proyecto…';
+    const info = document.createElement('div');
+    info.id = 'save-progress-info';
+    info.textContent = 'Empaquetando imágenes…';
+    const bar = document.createElement('div');
+    bar.style.cssText = 'height:2px;background:#222;border-radius:1px;margin-top:8px;overflow:hidden;';
+    const fill = document.createElement('div');
+    fill.id = 'save-progress-fill';
+    fill.style.cssText = 'height:100%;background:var(--col-yellow);width:0%;transition:width 0.2s;';
+    bar.appendChild(fill);
+    el.append(title, info, bar);
+    document.body.appendChild(el);
+    return {
+      update: (pct) => {
+        const f = document.getElementById('save-progress-fill');
+        const i = document.getElementById('save-progress-info');
+        if (f) f.style.width = Math.round(pct || 0) + '%';
+        if (i && (pct || 0) >= 99) i.textContent = 'Generando archivo…';
+      },
+      close: () => setTimeout(() => document.getElementById('save-progress')?.remove(), 600),
+    };
   }
 
   // ── GUARDAR JSON ──────────────────────────────────────────

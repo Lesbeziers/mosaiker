@@ -403,15 +403,14 @@ const Export = (() => {
     out.height = H;
     const ctx  = out.getContext('2d');
 
-    // Fondo (color + imagen). En modo transparente (PNG) se omite por completo,
-    // dejando el canvas 2D transparente bajo el mosaico.
+    // Fondo. En modo transparente (PNG) se omite por completo. El COLOR siempre
+    // se aplica; la IMAGEN de fondo se omite si su capa FONDO está oculta (👁).
     if (!transparent) {
-      // Fondo del lienzo (color elegido por formato; default #0e0e0e)
       ctx.fillStyle = (typeof Background !== 'undefined') ? Background.get(format.id) : '#0e0e0e';
       ctx.fillRect(0, 0, W, H);
 
-      // Imagen de fondo del formato (cover), por detrás del mosaico
-      if (typeof Background !== 'undefined' && Background.hasImage && Background.hasImage(format.id)) {
+      const bgImgOn = (typeof Background === 'undefined') || Background.isVisible(format.id);
+      if (bgImgOn && typeof Background !== 'undefined' && Background.hasImage && Background.hasImage(format.id)) {
         const bgUrl = Background.getImageUrl(format.id);
         if (bgUrl) {
           const bgImg = await _loadImage(bgUrl);
@@ -421,15 +420,18 @@ const Export = (() => {
     }
 
     // Composita el mosaico respetando su opacidad y desenfoque por formato.
-    // El blur se escala a la altura real del formato (px proporcionales).
-    const mosOp = (State.mosaicOpacity && typeof State.mosaicOpacity[format.id] === 'number')
-      ? State.mosaicOpacity[format.id] : 1;
-    const blurPx = (typeof MosaicBlur !== 'undefined') ? MosaicBlur.blurPxFor(H, format.id) : 0;
-    ctx.globalAlpha = mosOp;
-    ctx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
-    ctx.drawImage(renderer.domElement, 0, 0);
-    ctx.filter = 'none';
-    ctx.globalAlpha = 1;
+    // El blur se escala a la altura real del formato (px proporcionales). Se
+    // omite si la capa base MOSAICO está oculta (👁 del panel CAPAS).
+    if (!comp || comp.mosaicVisible !== false) {
+      const mosOp = (State.mosaicOpacity && typeof State.mosaicOpacity[format.id] === 'number')
+        ? State.mosaicOpacity[format.id] : 1;
+      const blurPx = (typeof MosaicBlur !== 'undefined') ? MosaicBlur.blurPxFor(H, format.id) : 0;
+      ctx.globalAlpha = mosOp;
+      ctx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
+      ctx.drawImage(renderer.domElement, 0, 0);
+      ctx.filter = 'none';
+      ctx.globalAlpha = 1;
+    }
 
     // Viñeta (si el formato la tiene activa). Se omite en PNG sin fondo:
     // es un oscurecido pensado para fundir con el fondo, sobre transparencia
@@ -448,6 +450,26 @@ const Export = (() => {
         }
       }
       ctx.globalAlpha = 1;
+    }
+
+    // Capas-imagen (logos / PNG de texto) por ENCIMA de todo, a resolución real.
+    // Coordenadas normalizadas (x,y centro; w = fracción del ancho) → idéntico al
+    // editor. Se usa el archivo original (máxima nitidez). Salen también en el PNG.
+    if (comp && comp.overlays && comp.overlays.length) {
+      for (const o of comp.overlays) {
+        if (o.visible === false) continue;
+        let file = (typeof Layers !== 'undefined' && Layers.getFile) ? Layers.getFile(o.cacheKey) : null;
+        if (!file && typeof Images !== 'undefined' && Images.getOriginalFile) file = Images.getOriginalFile(o.cacheKey);
+        if (!file) continue;
+        const url = URL.createObjectURL(file);
+        const img = await _loadImage(url);
+        URL.revokeObjectURL(url);
+        if (!img) continue;
+        const ar = o.ar || ((img.naturalWidth || img.width) / (img.naturalHeight || img.height)) || 1;
+        const dw = o.w * W;
+        const dh = dw / ar;
+        ctx.drawImage(img, o.x * W - dw / 2, o.y * H - dh / 2, dw, dh);
+      }
     }
 
     // Codifica: PNG (sin pérdida, conserva alpha) o JPG a máxima calidad

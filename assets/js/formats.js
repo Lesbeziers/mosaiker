@@ -97,6 +97,9 @@ const Formats = (() => {
         imageAdjust:     {},
         containerImages: {},
         groups:          [],
+        overlays:        [],     // capas-imagen (logos / PNG de texto), por formato
+        bgVisible:       true,   // visibilidad de la capa base FONDO
+        mosaicVisible:   true,   // visibilidad de la capa base MOSAICO
         fitted:          false,
       };
     }
@@ -125,6 +128,25 @@ const Formats = (() => {
       cacheKey:  dstFid + '::group::' + g.id,
       transform: { ...(g.transform || { dx: 0, dy: 0, scale: 1 }) },
     }));
+    // Capas-imagen (logos): copia profunda + re-mapeo de cacheKey al nuevo formato.
+    dst.overlays = (src.overlays || []).map(o => ({
+      id:      o.id,
+      image:   o.image,
+      cacheKey: dstFid + '::overlay::' + o.id,
+      x: o.x, y: o.y, w: o.w, ar: o.ar,
+      visible: o.visible !== false,
+      name:    o.name,
+    }));
+    // Los overlays viven del File (no de la caché WebGL): copia la referencia a la
+    // clave del nuevo formato de forma SÍNCRONA → se pintan al instante.
+    if (typeof Layers !== 'undefined' && Layers.getFile && Layers.setFile) {
+      (src.overlays || []).forEach(o => {
+        const f = Layers.getFile(o.cacheKey);
+        if (f) Layers.setFile(dstFid + '::overlay::' + o.id, f);
+      });
+    }
+    dst.bgVisible     = src.bgVisible !== false;
+    dst.mosaicVisible = src.mosaicVisible !== false;
 
     // Duplica las entradas de caché de imágenes a las claves del nuevo formato.
     if (typeof Images !== 'undefined' && Images.copyBinding) {
@@ -138,9 +160,10 @@ const Formats = (() => {
       if (jobs.length) {
         Promise.all(jobs).then(() => {
           // Solo refresca si seguimos en el formato heredado.
-          if (State.activeFormatId === dstFid && typeof Mosaic3D !== 'undefined' && Mosaic3D.refreshTextures) {
-            Mosaic3D.refreshTextures();
-          }
+          if (State.activeFormatId !== dstFid) return;
+          if (typeof Mosaic3D !== 'undefined' && Mosaic3D.refreshTextures) Mosaic3D.refreshTextures();
+          // Las capas-imagen ya tienen su binario copiado → re-render para pintarlas.
+          if (typeof Layers !== 'undefined' && Layers.update) Layers.update();
         });
       }
     }
@@ -155,7 +178,8 @@ const Formats = (() => {
 
     // Composición de ESTE formato + intercambio de punteros activos.
     const comp = ensureComposition(id);
-    if (!comp.groups) comp.groups = [];   // compat composiciones antiguas
+    if (!comp.groups) comp.groups = [];       // compat composiciones antiguas
+    if (!comp.overlays) comp.overlays = [];   // compat: capas-imagen
 
     // Primera visita a este formato viniendo de otro con trabajo → hereda una
     // copia (imágenes + encuadre + grupos) para readaptarla a este formato.
@@ -180,6 +204,8 @@ const Formats = (() => {
     // Aplica el mosaico + transform de este formato (auto-encuadre la 1ª vez,
     // restaura el encuadre guardado las siguientes).
     if (typeof Mosaic3D      !== 'undefined') Mosaic3D.applyFormat(comp);
+    // Panel CAPAS + capas-imagen sobre el lienzo de este formato.
+    if (typeof Layers        !== 'undefined') Layers.update();
     // Etiqueta del botón de mosaico + sliders + offsets según este formato.
     if (typeof Skeletons     !== 'undefined' && Skeletons.refreshActiveLabel) Skeletons.refreshActiveLabel();
     if (typeof UI            !== 'undefined') {

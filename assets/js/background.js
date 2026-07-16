@@ -49,6 +49,7 @@ const Background = (() => {
     if (!id || !file) return;
     _setImageFor(id, file);
     update();
+    if (typeof Layers !== 'undefined' && Layers.update) Layers.update();  // aparece la fila FONDO
   }
 
   // Sin re-render (para carga de proyecto: aún no hay UI pintada).
@@ -73,6 +74,7 @@ const Background = (() => {
     delete bgUrls[id];
     if (State.backgroundImages) delete State.backgroundImages[id];
     update();
+    if (typeof Layers !== 'undefined' && Layers.update) Layers.update();  // desaparece la fila FONDO
   }
 
   // ── RENDER (bottom bar) ───────────────────────────────────
@@ -141,16 +143,24 @@ const Background = (() => {
     _fileInput.click();
   }
 
+  // Visibilidad de la IMAGEN de fondo (toggle 👁 de la fila FONDO en CAPAS). El
+  // color de fondo siempre se aplica; esto solo controla la imagen importada.
+  function isVisible(formatId) {
+    const id = formatId ?? State.activeFormatId;
+    const comp = (typeof State !== 'undefined' && State.compositions) ? State.compositions[id] : null;
+    return !comp || comp.bgVisible !== false;
+  }
+
   function _applyToLienzo() {
     const lienzo = document.getElementById('lienzo');
     if (!lienzo) return;
     lienzo.style.backgroundColor = get();
-    const url = getImageUrl();
+    const url = isVisible() ? getImageUrl() : null;   // la imagen se puede ocultar; el color no
     lienzo.style.backgroundImage    = url ? `url("${url}")` : 'none';
     lienzo.style.backgroundSize     = 'cover';
     lienzo.style.backgroundPosition = 'center';
     lienzo.style.backgroundRepeat   = 'no-repeat';
   }
 
-  return { init, update, get, getImageFile, getImageUrl, hasImage, setImageFile, setImageFileFor, clearImage };
+  return { init, update, get, getImageFile, getImageUrl, hasImage, isVisible, setImageFile, setImageFileFor, clearImage };
 })();
