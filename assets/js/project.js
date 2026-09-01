@@ -210,6 +210,7 @@ const Project = (() => {
     State.mosaicOpacity     = { ...(data.mosaicOpacity    || {}) };
     State.mosaicBlur        = { ...(data.mosaicBlur       || {}) };
     State.stacksBorder      = { ...(data.stacksBorder     || {}) };
+    State.stacksBorderWidth = { ...(data.stacksBorderWidth || {}) };
     State.backgrounds       = { ...(data.backgrounds      || {}) };
     State.backgroundImages  = { ...(data.backgroundImages || {}) };
     State.formatsOk         = { ...(data.formatsOk        || {}) };
@@ -387,6 +388,7 @@ const Project = (() => {
       mosaicOpacity:   { ...State.mosaicOpacity },
       mosaicBlur:      { ...State.mosaicBlur },
       stacksBorder:    { ...State.stacksBorder },
+      stacksBorderWidth: { ...State.stacksBorderWidth },
       backgrounds:     { ...State.backgrounds },
       backgroundImages:{ ...State.backgroundImages },
       formatsOk:       { ...State.formatsOk },

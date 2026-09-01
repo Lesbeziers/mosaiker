@@ -13,6 +13,7 @@
 const StacksBorder = (() => {
 
   const STACKS_IDS = ['horizontal', 'horizontal-sello'];
+  const DEFAULT_WIDTH = 3;   // grosor por defecto del marco (en px de lienzo)
 
   function init() { update(); }
 
@@ -48,7 +49,30 @@ const StacksBorder = (() => {
     text.textContent = 'Borde blanco';
 
     lbl.append(input, track, text);
-    container.appendChild(lbl);
+
+    // Cajita de grosor del marco (por formato). Por defecto muestra el grosor
+    // que trae de serie; el usuario puede cambiarlo.
+    const wInput = document.createElement('input');
+    wInput.type = 'number';
+    wInput.min = '0'; wInput.max = '20'; wInput.step = '0.5';
+    wInput.value = String(width(fmt.id));
+    wInput.className = 'bb-border-width';
+    wInput.dataset.tooltip = 'Grosor del marco blanco (por defecto 3)';
+    wInput.addEventListener('change', () => {
+      let v = parseFloat(wInput.value);
+      if (!Number.isFinite(v) || v < 0) v = DEFAULT_WIDTH;
+      v = Math.min(20, v);
+      wInput.value = String(v);
+      if (!State.stacksBorderWidth) State.stacksBorderWidth = {};
+      State.stacksBorderWidth[fmt.id] = v;
+      if (typeof Mosaic3D !== 'undefined') Mosaic3D.rebuild();
+    });
+
+    // Contenedor en fila: switch + cajita.
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.style.gap = '8px';
+    container.append(lbl, wInput);
   }
 
   // ¿Se muestra el marco blanco en este formato? Default true.
@@ -58,5 +82,12 @@ const StacksBorder = (() => {
     return v === undefined ? true : !!v;
   }
 
-  return { init, update, isVisible };
+  // Grosor del marco blanco en este formato. Default 3.
+  function width(formatId) {
+    const id = formatId ?? State.activeFormatId;
+    const v = (State.stacksBorderWidth) ? State.stacksBorderWidth[id] : undefined;
+    return (typeof v === 'number' && v >= 0) ? v : DEFAULT_WIDTH;
+  }
+
+  return { init, update, isVisible, width };
 })();

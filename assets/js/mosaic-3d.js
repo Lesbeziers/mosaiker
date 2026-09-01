@@ -658,6 +658,13 @@ const Mosaic3D = (() => {
     return v === undefined ? true : !!v;
   }
 
+  // Grosor del marco blanco (configurable en la bottom-bar). Default 3.
+  function _stacksBorderWidth() {
+    const v = (typeof State !== 'undefined' && State.stacksBorderWidth)
+      ? State.stacksBorderWidth[State.activeFormatId] : undefined;
+    return (typeof v === 'number' && v >= 0) ? v : 3;
+  }
+
   function _addMesh(slot, x, centerY, w, h) {
     const r = (params.radius / 1000) * CELL_H;
 
@@ -687,7 +694,7 @@ const Mosaic3D = (() => {
     // las celdas a 100% de los esqueletos que lo piden (p.ej. stacks).
     // Se puede ocultar por formato (switch "Borde blanco" de la bottom-bar).
     if (slot.frame && _stacksBorderVisible()) {
-      const b     = _borderWorld(3);
+      const b     = _borderWorld(_stacksBorderWidth());
       const wGeo  = _makeRoundedFrame(w + 2 * b, h + 2 * b, w, h, r + b, r);
       const wMat  = new THREE.MeshBasicMaterial({
         color:       0xffffff,

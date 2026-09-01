@@ -183,3 +183,18 @@ body.view-all #bottombar {
 .switch:hover .track {
   filter: brightness(1.1);
 }
+
+/* Cajita de grosor del marco blanco (junto al switch "Borde blanco") */
+.bb-border-width {
+  width: 46px;
+  height: 22px;
+  background: var(--col-surface);
+  border: 1px solid var(--col-border);
+  border-radius: 3px;
+  color: var(--col-text);
+  font-family: var(--font);
+  font-size: 10px;
+  text-align: center;
+  padding: 0 4px;
+}
+.bb-border-width:focus { outline: none; border-color: var(--col-yellow); }

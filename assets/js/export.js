@@ -764,11 +764,13 @@ const Export = (() => {
       const ih = tex.image.height || tex.image.naturalHeight;
       if (iw && ih) coverUV = _coverUVAdjusted(w / h, iw / ih, key);
     }
-    // Marco blanco (3 pt) detrás de las celdas marcadas frame (stacks a 100%).
-    // Respeta el switch "Borde blanco" por formato (State.stacksBorder).
+    // Marco blanco detrás de las celdas marcadas frame (stacks a 100%). Respeta
+    // el switch "Borde blanco" y su grosor por formato (State.stacksBorder[Width]).
     const borderOn = !(typeof State !== 'undefined' && State.stacksBorder && State.stacksBorder[_exFormatId] === false);
     if (slot.frame && borderOn) {
-      const b    = _exBorderWorld(3, p);
+      const bw = (typeof State !== 'undefined' && State.stacksBorderWidth && typeof State.stacksBorderWidth[_exFormatId] === 'number')
+        ? State.stacksBorderWidth[_exFormatId] : 3;
+      const b    = _exBorderWorld(bw, p);
       const wGeo = _makeRoundedFrame(THREE, w + 2 * b, h + 2 * b, w, h, r + b, r);
       const wMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.FrontSide, transparent: true, opacity: 1 });
       const wMesh = new THREE.Mesh(wGeo, wMat);
