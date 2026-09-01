@@ -156,8 +156,30 @@ const ImageAdjust = (() => {
         .catch(() => { delete State.containerImages[hit.n]; })
         .finally(() => { if (spin) spin.remove(); });
     } else if (typeof Images !== 'undefined') {
-      Images.loadFiles(files);
+      // Zona vacía → carga por índice (requiere prefijo numérico). Si no se cargó
+      // nada (p. ej. "LORD_JOHN.png" sin prefijo), avisamos en vez de fallar mudo.
+      Images.loadFiles(files).then(loaded => {
+        if (!loaded || !loaded.length) {
+          _dropToast('Para colocar esta imagen, suéltala sobre una carátula del mosaico. ' +
+                     '(Para carga automática por lote, el nombre debe empezar por un número: 03_nombre.jpg)');
+        }
+      });
     }
+  }
+
+  // Aviso flotante temporal (p. ej. al soltar un archivo que no se puede colocar).
+  function _dropToast(msg) {
+    document.getElementById('drop-toast')?.remove();
+    const el = document.createElement('div');
+    el.id = 'drop-toast';
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;left:50%;bottom:84px;transform:translateX(-50%);' +
+      'z-index:99999;max-width:520px;background:#161616;border:1px solid var(--col-yellow);' +
+      'border-left-width:3px;border-radius:6px;padding:12px 18px;font-family:var(--font);' +
+      'font-size:12px;line-height:1.4;color:#e9e9e9;box-shadow:0 8px 24px rgba(0,0,0,0.6);text-align:center;';
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.transition = 'opacity .4s'; el.style.opacity = '0'; }, 4200);
+    setTimeout(() => el.remove(), 4700);
   }
 
   // Spinner de carga centrado sobre el contenedor mientras llega la imagen.

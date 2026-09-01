@@ -109,7 +109,7 @@ const Images = (() => {
       img.src = url;
     });
     pending.add(p);
-    p.finally(() => pending.delete(p));
+    p.finally(() => pending.delete(p)).catch(() => {}); // evita "uncaught (in promise)" del propio finally cuando p rechaza
     return p;
   }
 
@@ -141,7 +141,7 @@ const Images = (() => {
       img.src = url;
     });
     pending.add(p);
-    p.finally(() => pending.delete(p));
+    p.finally(() => pending.delete(p)).catch(() => {}); // evita "uncaught (in promise)" del propio finally cuando p rechaza
     return p;
   }
 
@@ -169,7 +169,7 @@ const Images = (() => {
       return dstKey;
     })();
     pending.add(p);
-    p.finally(() => pending.delete(p));
+    p.finally(() => pending.delete(p)).catch(() => {}); // evita "uncaught (in promise)" del propio finally cuando p rechaza
     return p;
   }
 
