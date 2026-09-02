@@ -3,10 +3,9 @@
 //
 // Controla el marco de las celdas: switch on/off, color y grosor. El ámbito
 // depende de la selección (igual que Transparencia):
-//   · Sin selección → MOSAICO. El switch "aplica a todas" (ON→todas, OFF→ninguna,
-//     escribe State.cellBorder de todas las celdas). Color y grosor son el valor
-//     por defecto del formato (State.stacksBorderColor / Width) que respetan los
-//     overrides por celda.
+//   · Sin selección → MOSAICO. El switch es un RESET TOTAL: ON→todas, OFF→ninguna,
+//     y en ambos casos BORRA los overrides de color/grosor por celda → las celdas
+//     vuelven al estilo por defecto del formato (State.stacksBorderColor / Width).
 //   · Con selección → CARÁTULA/S. Switch/color/grosor de la(s) celda(s)
 //     seleccionada(s): override en State.cellBorder / cellBorderColor /
 //     cellBorderWidth. ↺ vuelve al diseño (borra los overrides de la selección).
@@ -67,8 +66,16 @@ const StacksBorder = (() => {
     input.checked = curOn;
     input.addEventListener('change', () => {
       _ensureMaps();
-      const target = cellMode ? sel : (Mosaic3D.getAllCellKeys ? Mosaic3D.getAllCellKeys() : []);
-      target.forEach(k => { State.cellBorder[k] = input.checked; });
+      if (cellMode) {
+        sel.forEach(k => { State.cellBorder[k] = input.checked; });
+      } else {
+        // General = RESET TOTAL: todas las celdas al mismo on/off y al estilo por
+        // defecto del formato → se BORRAN los overrides de color/grosor por celda.
+        Object.keys(State.cellBorderColor).forEach(k => delete State.cellBorderColor[k]);
+        Object.keys(State.cellBorderWidth).forEach(k => delete State.cellBorderWidth[k]);
+        const all = (typeof Mosaic3D !== 'undefined' && Mosaic3D.getAllCellKeys) ? Mosaic3D.getAllCellKeys() : [];
+        all.forEach(k => { State.cellBorder[k] = input.checked; });
+      }
       if (typeof Mosaic3D !== 'undefined') Mosaic3D.rebuild();
       update();
     });
