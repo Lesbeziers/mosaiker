@@ -26,6 +26,15 @@ const CellOpacity = (() => {
     const sel = (typeof Mosaic3D !== 'undefined' && Mosaic3D.getSelection) ? Mosaic3D.getSelection() : [];
     const cellMode = sel.length > 0;
 
+    // Título dinámico del popover: refuerza (con palabra, no solo color) si
+    // estás editando el mosaico entero o la(s) carátula(s) seleccionada(s).
+    const title = document.querySelector('.bb-pop[data-feat="opacidad"] .bb-pop-title');
+    if (title) {
+      title.textContent = !cellMode
+        ? 'Transparencia Mosaico'
+        : (sel.length > 1 ? `Transparencia Carátulas (${sel.length})` : 'Transparencia Carátula');
+    }
+
     // Valor actual según ámbito.
     let cur;
     if (cellMode) {
