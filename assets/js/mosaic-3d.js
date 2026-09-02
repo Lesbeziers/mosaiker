@@ -58,6 +58,8 @@ const Mosaic3D = (() => {
   // Cada tile recibe una clave estable `${skeletonId}:${índiceDeRender}`.
   // El ajuste (dx, dy en UV + escala) vive en State.imageAdjust[clave].
   let _slotIndex    = 0;     // contador de tiles durante _build()
+  let _cellKeys     = [];    // claves de todas las celdas del build actual
+  let _cellFrame    = {};    // clave → frame de diseño (default de borde por celda)
   let _raycaster    = null;  // THREE.Raycaster (lazy)
   let _highlightKey = null;  // contenedor con foco amarillo (interacción) o null
   let _capturing    = false; // true durante el snapshot de VER TODAS: oculta
@@ -287,6 +289,8 @@ const Mosaic3D = (() => {
     }
 
     _slotIndex = 0; // reinicia el contador de claves de contenedor
+    _cellKeys = [];  // se rellena en _addMesh (para operaciones "a todas")
+    _cellFrame = {}; // clave → default de borde de diseño
 
     if (activeSkeleton.type === 'grid') {
       _buildGrid(activeSkeleton);
@@ -672,12 +676,35 @@ const Mosaic3D = (() => {
     return v || '#ffffff';
   }
 
+  // ── BORDE POR CELDA ───────────────────────────────────────
+  // Estado efectivo de cada celda: override propio (State.cellBorder*) o, si no,
+  // el valor de formato/diseño. slotFrame = default de diseño (qué celdas piden
+  // borde: en ZIG-ZAG las de opacidad ~1).
+  function _cellBorderOn(slotKey, slotFrame) {
+    const ov = (typeof State !== 'undefined' && State.cellBorder) ? State.cellBorder[slotKey] : undefined;
+    if (ov === true || ov === false) return ov;
+    // Sin override: compat con proyectos viejos (stacksBorder=false ocultaba todo).
+    if (typeof State !== 'undefined' && State.stacksBorder &&
+        State.stacksBorder[State.activeFormatId] === false) return false;
+    return !!slotFrame;
+  }
+  function _cellBorderColorFor(slotKey) {
+    const ov = (typeof State !== 'undefined' && State.cellBorderColor) ? State.cellBorderColor[slotKey] : undefined;
+    return ov || _stacksBorderColor();
+  }
+  function _cellBorderWidthFor(slotKey) {
+    const ov = (typeof State !== 'undefined' && State.cellBorderWidth) ? State.cellBorderWidth[slotKey] : undefined;
+    return (typeof ov === 'number' && ov >= 0) ? ov : _stacksBorderWidth();
+  }
+
   function _addMesh(slot, x, centerY, w, h) {
     const r = (params.radius / 1000) * CELL_H;
 
     // Clave estable del contenedor (orden de render dentro del esqueleto).
     const slotKey = (activeSkeleton ? activeSkeleton.id : '?') + ':' + _slotIndex;
     _slotIndex++;
+    _cellKeys.push(slotKey);       // registro para operaciones "a todas"
+    _cellFrame[slotKey] = !!slot.frame;   // default de borde de diseño
 
     // Foco amarillo del contenedor: rectángulo algo mayor por detrás → borde.
     // Si hay una "pista de drop" activa (arrastrando un archivo), tiene
@@ -697,14 +724,14 @@ const Mosaic3D = (() => {
       pivot.add(hMesh);
     }
 
-    // Marco blanco (3 pt) detrás de los holders marcados frame — sólo
-    // las celdas a 100% de los esqueletos que lo piden (p.ej. stacks).
-    // Se puede ocultar por formato (switch "Borde blanco" de la bottom-bar).
-    if (slot.frame && _stacksBorderVisible()) {
-      const b     = _borderWorld(_stacksBorderWidth());
+    // Marco de la celda. El estado ON/OFF, color y grosor son POR CELDA
+    // (override en State.cellBorder*), con fallback al valor de formato/diseño.
+    // slot.frame = default de diseño (qué celdas piden borde: p.ej. ZIG-ZAG a ~1).
+    if (_cellBorderOn(slotKey, slot.frame)) {
+      const b     = _borderWorld(_cellBorderWidthFor(slotKey));
       const wGeo  = _makeRoundedFrame(w + 2 * b, h + 2 * b, w, h, r + b, r);
       const wMat  = new THREE.MeshBasicMaterial({
-        color:       new THREE.Color(_stacksBorderColor()),
+        color:       new THREE.Color(_cellBorderColorFor(slotKey)),
         side:        THREE.FrontSide,
         transparent: true,
         opacity:     1,
@@ -1338,6 +1365,13 @@ const Mosaic3D = (() => {
     return op;
   }
 
+  // ── BORDE POR CELDA (API pública para el control contextual) ──
+  function getAllCellKeys() { return [..._cellKeys]; }
+  // Estado efectivo de borde de una celda (override o diseño).
+  function getCellBorder(key)      { return _cellBorderOn(key, _cellFrame[key]); }
+  function getCellBorderColor(key) { return _cellBorderColorFor(key); }
+  function getCellBorderWidth(key) { return _cellBorderWidthFor(key); }
+
   // Crea un grupo con las celdas dadas y le vincula la imagen `file`.
   // Una celda pertenece a un grupo como máximo (se retira de grupos previos).
   function createGroup(keys, file) {
@@ -1373,5 +1407,6 @@ const Mosaic3D = (() => {
     pickKeyAt, panByScreen, scaleByFactor, setHighlight, beginCapture, endCapture,
     setDropHint, clearDropHint, getContainerScreen, getIndexScreens, applyFormat,
     toggleSelection, setSelection, clearSelection, getSelection, getCellOpacity, createGroup, getGroupIdOf, removeKeyFromGroup,
+    getAllCellKeys, getCellBorder, getCellBorderColor, getCellBorderWidth,
   };
 })();

@@ -764,13 +764,19 @@ const Export = (() => {
       const ih = tex.image.height || tex.image.naturalHeight;
       if (iw && ih) coverUV = _coverUVAdjusted(w / h, iw / ih, key);
     }
-    // Marco blanco detrás de las celdas marcadas frame (stacks a 100%). Respeta
-    // el switch "Borde blanco" y su grosor por formato (State.stacksBorder[Width]).
-    const borderOn = !(typeof State !== 'undefined' && State.stacksBorder && State.stacksBorder[_exFormatId] === false);
-    if (slot.frame && borderOn) {
-      const bw = (typeof State !== 'undefined' && State.stacksBorderWidth && typeof State.stacksBorderWidth[_exFormatId] === 'number')
-        ? State.stacksBorderWidth[_exFormatId] : 3;
-      const bc = (typeof State !== 'undefined' && State.stacksBorderColor && State.stacksBorderColor[_exFormatId]) || '#ffffff';
+    // Marco de la celda: estado ON/OFF, color y grosor POR CELDA (override en la
+    // composición: comp.cellBorder*), con fallback al valor de formato/diseño.
+    // Debe coincidir con mosaic-3d._addMesh (_cellBorderOn / *Color / *Width).
+    const legacyOff = (typeof State !== 'undefined' && State.stacksBorder && State.stacksBorder[_exFormatId] === false);
+    const ovOn = (_exComp && _exComp.cellBorder) ? _exComp.cellBorder[key] : undefined;
+    const borderOn = (ovOn === true || ovOn === false) ? ovOn : (legacyOff ? false : !!slot.frame);
+    if (borderOn) {
+      const ovW = (_exComp && _exComp.cellBorderWidth) ? _exComp.cellBorderWidth[key] : undefined;
+      const bw = (typeof ovW === 'number' && ovW >= 0) ? ovW
+        : ((typeof State !== 'undefined' && State.stacksBorderWidth && typeof State.stacksBorderWidth[_exFormatId] === 'number')
+            ? State.stacksBorderWidth[_exFormatId] : 3);
+      const ovC = (_exComp && _exComp.cellBorderColor) ? _exComp.cellBorderColor[key] : undefined;
+      const bc = ovC || ((typeof State !== 'undefined' && State.stacksBorderColor && State.stacksBorderColor[_exFormatId]) || '#ffffff');
       const b    = _exBorderWorld(bw, p);
       const wGeo = _makeRoundedFrame(THREE, w + 2 * b, h + 2 * b, w, h, r + b, r);
       const wMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(bc), side: THREE.FrontSide, transparent: true, opacity: 1 });
