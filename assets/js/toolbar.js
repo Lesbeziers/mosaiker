@@ -14,6 +14,10 @@ const Toolbar = (() => {
 
   // Botones que solo aplican al formato → se atenúan si hay selección.
   const FORMAT_ONLY = ['fondo', 'desenfoque', 'borde'];
+  // Botones cuyo ámbito SIGUE a la selección (título Mosaico ↔ Carátula/s).
+  // Los demás son siempre de formato → título "… Mosaico". Al añadir un botón
+  // por-carátula en el futuro, basta con incluir su data-feat aquí.
+  const CONTEXTUAL = ['opacidad'];
   let _open = null;
 
   function init() {
@@ -78,6 +82,24 @@ const Toolbar = (() => {
       const disabled = hasSel && FORMAT_ONLY.includes(btn.dataset.feat);
       btn.classList.toggle('disabled', disabled);
       if (disabled && _open === btn.dataset.feat) _closeAll();
+    });
+    _updateTitles();
+  }
+
+  // Título de cada popover = etiqueta del botón + ámbito. Así reforzamos con la
+  // PALABRA (no solo con el tinte del bottom) si editas el mosaico o la selección.
+  // Común a todos los botones → los nuevos lo heredan sin tocar nada.
+  function _updateTitles() {
+    const sel = (typeof Mosaic3D !== 'undefined' && Mosaic3D.getSelection) ? Mosaic3D.getSelection() : [];
+    const n = sel.length;
+    document.querySelectorAll('#bb-buttons .bb-btn').forEach(btn => {
+      const feat = btn.dataset.feat;
+      const pop = document.querySelector('.bb-pop[data-feat="' + feat + '"]');
+      const title = pop ? pop.querySelector('.bb-pop-title') : null;
+      if (!title) return;
+      let scope = 'Mosaico';
+      if (CONTEXTUAL.includes(feat) && n > 0) scope = (n > 1) ? `Carátulas (${n})` : 'Carátula';
+      title.textContent = btn.textContent.trim() + ' ' + scope;
     });
   }
 
