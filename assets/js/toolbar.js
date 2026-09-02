@@ -71,6 +71,9 @@ const Toolbar = (() => {
   function update() {
     const hasSel = (typeof Mosaic3D !== 'undefined' && Mosaic3D.getSelection)
       ? Mosaic3D.getSelection().length > 0 : false;
+    // Tinte del bottom en modo "editando selección".
+    const bar = document.getElementById('bottombar');
+    if (bar) bar.classList.toggle('sel-mode', hasSel);
     document.querySelectorAll('#bb-buttons .bb-btn').forEach(btn => {
       const disabled = hasSel && FORMAT_ONLY.includes(btn.dataset.feat);
       btn.classList.toggle('disabled', disabled);

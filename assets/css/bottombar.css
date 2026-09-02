@@ -14,6 +14,14 @@
   padding: 0 12px;
   position: relative;   /* ancla de los popovers */
   overflow: visible;    /* el popover sale por arriba de la barra */
+  transition: background 0.15s ease, border-top-color 0.15s ease;
+}
+
+/* Modo "editando selección": tinte cálido sutil + línea amarilla arriba, para
+   saber de un vistazo que estás sobre carátulas particulares (no el formato). */
+#bottombar.sel-mode {
+  background: #1e1a0f;
+  border-top-color: var(--col-yellow);
 }
 
 /* ── TOOLBAR DE BOTONES ────────────────────────────────────── */
