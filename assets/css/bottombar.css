@@ -231,8 +231,8 @@ body.view-all #bottombar {
 }
 
 .switch .track {
-  width: 36px;
-  height: 18px;
+  width: 30px;
+  height: 16px;
   border-radius: 999px;
   background: #4a4a4a;
   position: relative;
@@ -244,8 +244,8 @@ body.view-all #bottombar {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #fff;
   transition: left 0.18s ease;
@@ -256,7 +256,7 @@ body.view-all #bottombar {
 }
 
 .switch input:checked + .track .knob {
-  left: 20px;
+  left: 16px;
 }
 
 .switch:hover .track {

@@ -31,12 +31,7 @@ const StacksBorder = (() => {
     container.style.alignItems = 'center';
     container.style.gap = '8px';
 
-    // Label del bloque.
-    const label = document.createElement('span');
-    label.className = 'bb-slider-label';
-    label.textContent = 'Borde';
-
-    // Switch (solo el track; el texto va en el label anterior).
+    // Switch (solo el track; el texto lo pone el título del popover "Borde").
     const sw = document.createElement('label');
     sw.className = 'switch';
     sw.dataset.tooltip = 'Mostrar / ocultar el borde de las celdas';
@@ -82,7 +77,7 @@ const StacksBorder = (() => {
       if (typeof Mosaic3D !== 'undefined') Mosaic3D.rebuild();
     });
 
-    container.append(label, sw, swatch, wInput);
+    container.append(sw, swatch, wInput);
   }
 
   // ¿Se muestra el borde en este formato? Default true.

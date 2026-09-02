@@ -69,10 +69,15 @@ const Overlays = (() => {
     knob.className = 'knob';
     track.appendChild(knob);
 
-    const text = document.createElement('span');
-    text.textContent = overlay.label;
-
-    lbl.append(input, track, text);
+    // El texto solo se muestra si el formato tiene 2+ overlays (para distinguir,
+    // p.ej. Mockup vs Zona de seguridad). Con uno solo, el título "Guías" basta.
+    if ((fmt?.overlays?.length || 0) > 1) {
+      const text = document.createElement('span');
+      text.textContent = overlay.label;
+      lbl.append(input, track, text);
+    } else {
+      lbl.append(input, track);
+    }
     return lbl;
   }
 

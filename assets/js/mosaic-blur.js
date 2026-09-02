@@ -53,10 +53,6 @@ const MosaicBlur = (() => {
     const wrap = document.createElement('div');
     wrap.className = 'bb-slider-wrap';
 
-    const label = document.createElement('span');
-    label.className = 'bb-slider-label';
-    label.textContent = 'Desenfoque';
-
     const slider = document.createElement('input');
     slider.type  = 'range';
     slider.min   = 0;
@@ -76,7 +72,7 @@ const MosaicBlur = (() => {
       _applyToCanvas();
     });
 
-    wrap.append(label, slider, val);
+    wrap.append(slider, val);
     container.appendChild(wrap);
   }
 
