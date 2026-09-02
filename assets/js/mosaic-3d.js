@@ -1328,6 +1328,7 @@ const Mosaic3D = (() => {
   // Avisa a los controles contextuales cuando cambia la selección.
   function _notifySelection() {
     if (typeof CellOpacity !== 'undefined' && CellOpacity.update) CellOpacity.update();
+    if (typeof StacksBorder !== 'undefined' && StacksBorder.update) StacksBorder.update();
     if (typeof Toolbar !== 'undefined' && Toolbar.update) Toolbar.update();
   }
   function toggleSelection(key) {
