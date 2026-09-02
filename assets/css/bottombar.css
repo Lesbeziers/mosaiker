@@ -10,6 +10,7 @@
   border-top: 1px solid var(--col-border);
   display: flex;
   align-items: center;
+  justify-content: center;   /* grupo de botones centrado en el viewport */
   padding: 0 12px;
   position: relative;   /* ancla de los popovers */
   overflow: visible;    /* el popover sale por arriba de la barra */
@@ -23,7 +24,7 @@
   font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--col-yellow);
   background: var(--col-surface); border: 1px solid var(--col-border);
-  border-radius: 4px; height: 26px; padding: 0 12px; cursor: pointer; white-space: nowrap;
+  border-radius: 2px; height: 26px; padding: 0 12px; cursor: pointer; white-space: nowrap;
 }
 .bb-btn:hover { border-color: var(--col-yellow); }
 .bb-btn.open  { border-color: var(--col-yellow); background: #1e1e1e; }
