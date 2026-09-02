@@ -13,9 +13,11 @@ const MosaicOpacity = (() => {
     update();
   }
 
-  // Llamada al cambiar de formato (desde Formats.setActive)
+  // Llamada al cambiar de formato (desde Formats.setActive). El slider ya no lo
+  // pinta este módulo: el popover de Opacidad usa UN solo slider contextual
+  // (CellOpacity) que en modo formato llama aquí a get()/set(). Aquí solo
+  // aplicamos la opacidad del formato al canvas.
   function update() {
-    _renderSlider();
     _applyToCanvas();
   }
 
@@ -28,45 +30,15 @@ const MosaicOpacity = (() => {
     return (typeof v === 'number') ? v : 1;
   }
 
-  // ── PRIVADAS ─────────────────────────────────────────────
-
-  function _renderSlider() {
-    const container = document.getElementById('bb-opacity');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const fmt = (typeof Formats !== 'undefined') ? Formats.getActive() : null;
-    if (!fmt) return;
-
-    const wrap = document.createElement('div');
-    wrap.className = 'bb-slider-wrap';
-
-    const label = document.createElement('span');
-    label.className = 'bb-slider-label bb-sublabel';
-    label.textContent = 'Mosaico';
-
-    const slider = document.createElement('input');
-    slider.type  = 'range';
-    slider.min   = 0;
-    slider.max   = 100;
-    slider.step  = 1;
-    slider.value = Math.round(get(fmt.id) * 100);
-    slider.className = 'bb-slider-control';
-
-    const val = document.createElement('span');
-    val.className = 'bb-slider-val';
-    val.textContent = slider.value;
-
-    slider.addEventListener('input', () => {
-      const v = +slider.value;
-      val.textContent = v;
-      State.mosaicOpacity[fmt.id] = v / 100;
-      _applyToCanvas();
-    });
-
-    wrap.append(label, slider, val);
-    container.appendChild(wrap);
+  // Fija la opacidad del formato activo (0..1) y la aplica en vivo.
+  function set(v01) {
+    const id = State.activeFormatId;
+    if (!id) return;
+    State.mosaicOpacity[id] = v01;
+    _applyToCanvas();
   }
+
+  // ── PRIVADAS ─────────────────────────────────────────────
 
   function _applyToCanvas() {
     const canvas = document.querySelector('#lienzo .mosaic-canvas');
@@ -74,5 +46,5 @@ const MosaicOpacity = (() => {
     canvas.style.opacity = String(get());
   }
 
-  return { init, update, get };
+  return { init, update, get, set };
 })();
