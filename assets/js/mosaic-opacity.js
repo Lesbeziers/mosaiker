@@ -42,8 +42,8 @@ const MosaicOpacity = (() => {
     wrap.className = 'bb-slider-wrap';
 
     const label = document.createElement('span');
-    label.className = 'bb-slider-label';
-    label.textContent = 'Opacidad';
+    label.className = 'bb-slider-label bb-sublabel';
+    label.textContent = 'Mosaico';
 
     const slider = document.createElement('input');
     slider.type  = 'range';

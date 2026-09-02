@@ -110,6 +110,9 @@ const State = {
   // Ausente = grosor por defecto (3).
   stacksBorderWidth: {},
 
+  // Color del marco por formato. clave = formatId, valor = hex. Ausente = blanco.
+  stacksBorderColor: {},
+
   // Grupos de celdas ("contenedor virtual") del formato activo. PUNTERO a la
   // composición activa (lo sincroniza Formats.setActive), igual que imageAdjust.
   // Cada grupo: { id, cells:[key], image, cacheKey, transform:{dx,dy,scale} }.

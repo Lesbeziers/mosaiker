@@ -10,32 +10,66 @@
   border-top: 1px solid var(--col-border);
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 40px;
-  padding: 0 16px;
+  justify-content: space-between;  /* bloques + separadores repartidos proporcionalmente */
+  gap: 8px;
+  padding: 0 14px;
+  overflow: hidden;               /* si no cabe (monitor muy pequeño), recorta por la derecha */
 }
+
+/* Bloque de la bottom-bar (FONDO, OPACIDAD, DESENFOQUE, BORDE, ZONA) */
+.bb-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+/* Separador vertical entre bloques */
+.bb-sep {
+  flex: none;
+  width: 1px;
+  height: 24px;
+  background: var(--col-border);
+}
+
+/* Header de bloque (p. ej. "OPACIDAD") */
+.bb-block-title {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--col-text);
+  white-space: nowrap;
+}
+
+/* Sub-labels dentro de un bloque (MOSAICO / CARÁTULA) — algo más apagados */
+.bb-sublabel { color: var(--col-text-muted); }
+
+/* Control de opacidad de carátula deshabilitado (sin selección) */
+.bb-caratula.disabled { opacity: 0.2; pointer-events: none; }
 
 #bb-background,
 #bb-opacity,
+#bb-cell-opacity,
 #bb-blur,
 #bb-overlays {
   display: flex;
   align-items: center;
-  gap: 30px;
 }
 
 /* ── FONDO (cuadradito de color) ──────────────────────────── */
 .bb-bg-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .bb-bg-swatch {
   -webkit-appearance: none;
   appearance: none;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: none;
   border-radius: 4px;
@@ -50,10 +84,10 @@
 
 .bb-bg-imgbtn {
   font-family: var(--font);
-  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
   color: var(--col-text);
   background: #2a2a2a; border: 1px solid var(--col-border);
-  border-radius: 4px; height: 22px; padding: 0 8px; cursor: pointer;
+  border-radius: 4px; height: 20px; padding: 0 7px; cursor: pointer;
 }
 .bb-bg-imgbtn:hover { filter: brightness(1.2); }
 .bb-bg-imgbtn.active { background: var(--col-yellow); color: #111; border-color: var(--col-yellow); }
@@ -68,21 +102,21 @@
 .bb-slider-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .bb-slider-label {
   font-family: var(--font);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--col-text);
   white-space: nowrap;
 }
 
 .bb-slider-control {
-  width: 130px;
+  width: 80px;
   height: 3px;
   -webkit-appearance: none;
   appearance: none;
@@ -119,10 +153,10 @@
 
 .bb-slider-val {
   font-family: var(--font);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--col-yellow);
-  min-width: 28px;
+  min-width: 22px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -136,13 +170,13 @@ body.view-all #bottombar {
 .switch {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   user-select: none;
   cursor: pointer;
   font-family: var(--font);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--col-text);
 }
@@ -186,8 +220,8 @@ body.view-all #bottombar {
 
 /* Cajita de grosor del marco blanco (junto al switch "Borde blanco") */
 .bb-border-width {
-  width: 46px;
-  height: 22px;
+  width: 40px;
+  height: 20px;
   background: var(--col-surface);
   border: 1px solid var(--col-border);
   border-radius: 3px;
@@ -195,6 +229,33 @@ body.view-all #bottombar {
   font-family: var(--font);
   font-size: 10px;
   text-align: center;
-  padding: 0 4px;
+  padding: 0 3px;
 }
 .bb-border-width:focus { outline: none; border-color: var(--col-yellow); }
+
+/* Botón ↺ del control de opacidad por carátula */
+.bb-cellop-reset {
+  margin-left: 2px;
+  width: 20px; height: 20px;
+  background: var(--col-surface);
+  border: 1px solid var(--col-border);
+  border-radius: 3px;
+  color: var(--col-text);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+.bb-cellop-reset:hover { border-color: var(--col-yellow); color: var(--col-yellow); }
+
+/* Labels que marcan el INICIO de cada bloque → amarillo oficial (para
+   identificar de un vistazo dónde empieza cada bloque). Los sub-labels
+   (MOSAICO / CARÁTULA) quedan apagados para mantener la jerarquía. */
+.bb-block-title,
+.bb-slider-label:not(.bb-sublabel),
+.switch {
+  color: var(--col-yellow);
+}
+
+/* Sub-labels (MOSAICO / CARÁTULA) apagados — jerarquía bajo el amarillo del bloque.
+   (Va al final para ganar a la regla base de .bb-slider-label.) */
+.bb-sublabel { color: var(--col-text-muted); }

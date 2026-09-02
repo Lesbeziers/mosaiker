@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   Overlays.init();
   Vignettes.init();
   MosaicOpacity.init();
+  CellOpacity.init();
   MosaicBlur.init();
   StacksBorder.init();
   Background.init();

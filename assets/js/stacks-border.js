@@ -1,19 +1,20 @@
 // ============================================================
-// STACKS-BORDER.JS — Switch "Borde blanco" en la bottom-bar
+// STACKS-BORDER.JS — Bloque "BORDE" de la bottom-bar
 //
-// Solo aparece cuando el mosaico activo es ZIG-ZAG (`horizontal`) o
-// ZIG-ZAG + SELLO (`horizontal-sello`), que son los que tienen celdas
-// con marco blanco. Permite mostrar/ocultar ese marco.
-//
-// Estado por formato en State.stacksBorder[formatId] (default true =
-// mostrar). El render del marco lo gatea mosaic-3d.js (_addMesh) y
-// export.js; aquí solo está la UI + el estado.
+// Controla el marco de las celdas: switch on/off, color y grosor. Por ahora el
+// marco solo se dibuja en los mosaicos con celdas 'frame' (ZIG-ZAG / +SELLO);
+// el bloque se muestra SIEMPRE (pensado para cuando se implementen bordes en
+// todos los formatos). Estado por formato:
+//   - visibilidad → State.stacksBorder[formatId]      (default true)
+//   - grosor      → State.stacksBorderWidth[formatId] (default 3)
+//   - color       → State.stacksBorderColor[formatId] (default #ffffff)
+// El render lo aplican mosaic-3d.js (_addMesh) y export.js.
 // ============================================================
 
 const StacksBorder = (() => {
 
-  const STACKS_IDS = ['horizontal', 'horizontal-sello'];
-  const DEFAULT_WIDTH = 3;   // grosor por defecto del marco (en px de lienzo)
+  const DEFAULT_WIDTH = 3;
+  const DEFAULT_COLOR = '#ffffff';
 
   function init() { update(); }
 
@@ -23,15 +24,22 @@ const StacksBorder = (() => {
     if (!container) return;
     container.innerHTML = '';
 
-    // Solo en los mosaicos con marco blanco.
-    if (!STACKS_IDS.includes(State.activeSkeletonId)) return;
     const fmt = (typeof Formats !== 'undefined') ? Formats.getActive() : null;
     if (!fmt) return;
 
-    const lbl = document.createElement('label');
-    lbl.className = 'switch';
-    lbl.dataset.tooltip = 'Mostrar / ocultar el marco blanco de las celdas';
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.style.gap = '8px';
 
+    // Label del bloque.
+    const label = document.createElement('span');
+    label.className = 'bb-slider-label';
+    label.textContent = 'Borde';
+
+    // Switch (solo el track; el texto va en el label anterior).
+    const sw = document.createElement('label');
+    sw.className = 'switch';
+    sw.dataset.tooltip = 'Mostrar / ocultar el borde de las celdas';
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.checked = isVisible(fmt.id);
@@ -40,24 +48,30 @@ const StacksBorder = (() => {
       State.stacksBorder[fmt.id] = input.checked;
       if (typeof Mosaic3D !== 'undefined') Mosaic3D.rebuild();
     });
-
     const track = document.createElement('span'); track.className = 'track';
     const knob  = document.createElement('span'); knob.className  = 'knob';
     track.appendChild(knob);
+    sw.append(input, track);
 
-    const text = document.createElement('span');
-    text.textContent = 'Borde blanco';
+    // Selector de color del borde (mismo estilo que el swatch de fondo).
+    const swatch = document.createElement('input');
+    swatch.type = 'color';
+    swatch.className = 'bb-bg-swatch';
+    swatch.value = color(fmt.id);
+    swatch.dataset.tooltip = 'Color del borde';
+    swatch.addEventListener('input', () => {
+      if (!State.stacksBorderColor) State.stacksBorderColor = {};
+      State.stacksBorderColor[fmt.id] = swatch.value;
+      if (typeof Mosaic3D !== 'undefined') Mosaic3D.rebuild();
+    });
 
-    lbl.append(input, track, text);
-
-    // Cajita de grosor del marco (por formato). Por defecto muestra el grosor
-    // que trae de serie; el usuario puede cambiarlo.
+    // Cajita de grosor.
     const wInput = document.createElement('input');
     wInput.type = 'number';
     wInput.min = '0'; wInput.max = '20'; wInput.step = '0.5';
     wInput.value = String(width(fmt.id));
     wInput.className = 'bb-border-width';
-    wInput.dataset.tooltip = 'Grosor del marco blanco (por defecto 3)';
+    wInput.dataset.tooltip = 'Grosor del borde (por defecto 3)';
     wInput.addEventListener('change', () => {
       let v = parseFloat(wInput.value);
       if (!Number.isFinite(v) || v < 0) v = DEFAULT_WIDTH;
@@ -68,26 +82,29 @@ const StacksBorder = (() => {
       if (typeof Mosaic3D !== 'undefined') Mosaic3D.rebuild();
     });
 
-    // Contenedor en fila: switch + cajita.
-    container.style.display = 'flex';
-    container.style.alignItems = 'center';
-    container.style.gap = '8px';
-    container.append(lbl, wInput);
+    container.append(label, sw, swatch, wInput);
   }
 
-  // ¿Se muestra el marco blanco en este formato? Default true.
+  // ¿Se muestra el borde en este formato? Default true.
   function isVisible(formatId) {
     const id = formatId ?? State.activeFormatId;
     const v = (State.stacksBorder) ? State.stacksBorder[id] : undefined;
     return v === undefined ? true : !!v;
   }
 
-  // Grosor del marco blanco en este formato. Default 3.
+  // Grosor del borde en este formato. Default 3.
   function width(formatId) {
     const id = formatId ?? State.activeFormatId;
     const v = (State.stacksBorderWidth) ? State.stacksBorderWidth[id] : undefined;
     return (typeof v === 'number' && v >= 0) ? v : DEFAULT_WIDTH;
   }
 
-  return { init, update, isVisible, width };
+  // Color del borde en este formato. Default blanco.
+  function color(formatId) {
+    const id = formatId ?? State.activeFormatId;
+    const v = (State.stacksBorderColor) ? State.stacksBorderColor[id] : undefined;
+    return v || DEFAULT_COLOR;
+  }
+
+  return { init, update, isVisible, width, color };
 })();

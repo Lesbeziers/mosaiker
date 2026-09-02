@@ -770,19 +770,23 @@ const Export = (() => {
     if (slot.frame && borderOn) {
       const bw = (typeof State !== 'undefined' && State.stacksBorderWidth && typeof State.stacksBorderWidth[_exFormatId] === 'number')
         ? State.stacksBorderWidth[_exFormatId] : 3;
+      const bc = (typeof State !== 'undefined' && State.stacksBorderColor && State.stacksBorderColor[_exFormatId]) || '#ffffff';
       const b    = _exBorderWorld(bw, p);
       const wGeo = _makeRoundedFrame(THREE, w + 2 * b, h + 2 * b, w, h, r + b, r);
-      const wMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.FrontSide, transparent: true, opacity: 1 });
+      const wMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(bc), side: THREE.FrontSide, transparent: true, opacity: 1 });
       const wMesh = new THREE.Mesh(wGeo, wMat);
       wMesh.position.set(x + w / 2, centerY, -0.002);
       pivot.add(wMesh);
     }
     const geo = _makeRoundedRect(THREE, w, h, r, coverUV);
+    // Opacidad efectiva: override por celda (State.cellOpacity vía comp) o diseño.
+    const ovOp   = (_exComp && _exComp.cellOpacity) ? _exComp.cellOpacity[key] : undefined;
+    const cellOp = (typeof ovOp === 'number') ? ovOp : (slot.opacity ?? 1);
     const mat = new THREE.MeshBasicMaterial({
       map:         tex,
       side:        THREE.FrontSide,
       transparent: true,
-      opacity:     slot.opacity ?? 1,
+      opacity:     cellOp,
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x + w / 2, centerY, 0);

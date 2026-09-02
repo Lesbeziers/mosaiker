@@ -665,6 +665,13 @@ const Mosaic3D = (() => {
     return (typeof v === 'number' && v >= 0) ? v : 3;
   }
 
+  // Color del marco (configurable). Default blanco.
+  function _stacksBorderColor() {
+    const v = (typeof State !== 'undefined' && State.stacksBorderColor)
+      ? State.stacksBorderColor[State.activeFormatId] : undefined;
+    return v || '#ffffff';
+  }
+
   function _addMesh(slot, x, centerY, w, h) {
     const r = (params.radius / 1000) * CELL_H;
 
@@ -697,7 +704,7 @@ const Mosaic3D = (() => {
       const b     = _borderWorld(_stacksBorderWidth());
       const wGeo  = _makeRoundedFrame(w + 2 * b, h + 2 * b, w, h, r + b, r);
       const wMat  = new THREE.MeshBasicMaterial({
-        color:       0xffffff,
+        color:       new THREE.Color(_stacksBorderColor()),
         side:        THREE.FrontSide,
         transparent: true,
         opacity:     1,
@@ -728,11 +735,16 @@ const Mosaic3D = (() => {
     const geo = _makeRoundedRect(w, h, r, coverUV);
     const tex = _getOrCreateTexture({ n: imgKey, ratio: slot.ratio });
 
+    // Opacidad efectiva: override por celda (editable en la bottom-bar) o, si no,
+    // la de diseño del esqueleto. La global del mosaico se aplica aparte (canvas).
+    const ovOp = (typeof State !== 'undefined' && State.cellOpacity) ? State.cellOpacity[slotKey] : undefined;
+    const cellOp = (typeof ovOp === 'number') ? ovOp : (slot.opacity ?? 1);
+
     const mat = new THREE.MeshBasicMaterial({
       map:         tex,
       side:        THREE.FrontSide,
       transparent: true,
-      opacity:     slot.opacity ?? 1,
+      opacity:     cellOp,
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x + w / 2, centerY, 0);
@@ -1286,25 +1298,44 @@ const Mosaic3D = (() => {
   }
 
   // ── SELECCIÓN DE CELDAS (shift+clic) ─────────────────────────────────
+  // Avisa al control contextual de opacidad cuando cambia la selección.
+  function _notifySelection() {
+    if (typeof CellOpacity !== 'undefined' && CellOpacity.update) CellOpacity.update();
+  }
   function toggleSelection(key) {
     if (!key) return;
     if (_selectedKeys.has(key)) _selectedKeys.delete(key);
     else _selectedKeys.add(key);
     rebuild();
+    _notifySelection();
   }
   function clearSelection() {
     if (!_selectedKeys.size && !_highlightKey) return;
     _selectedKeys.clear();
     _highlightKey = null;
     rebuild();
+    _notifySelection();
   }
   // Reemplaza la selección por las celdas dadas (clic normal = una sola).
   function setSelection(keys) {
     _selectedKeys = new Set(keys || []);
     _highlightKey = null;          // la selección pasa a ser la fuente del foco
     rebuild();
+    _notifySelection();
   }
   function getSelection() { return [..._selectedKeys]; }
+
+  // Opacidad efectiva actual de una celda (override o diseño). La usa el control
+  // contextual para inicializar el slider. Lee la del mesh ya construido.
+  function getCellOpacity(key) {
+    let op = null;
+    pivot.children.forEach(o => {
+      if (o.userData && o.userData.slot && o.userData.slot.key === key && o.material && typeof o.material.opacity === 'number' && o.renderOrder === 1) {
+        op = o.material.opacity;
+      }
+    });
+    return op;
+  }
 
   // Crea un grupo con las celdas dadas y le vincula la imagen `file`.
   // Una celda pertenece a un grupo como máximo (se retira de grupos previos).
@@ -1340,6 +1371,6 @@ const Mosaic3D = (() => {
     fitToLienzo, refreshTextures, setPrefixesVisible, getTHREE,
     pickKeyAt, panByScreen, scaleByFactor, setHighlight, beginCapture, endCapture,
     setDropHint, clearDropHint, getContainerScreen, getIndexScreens, applyFormat,
-    toggleSelection, setSelection, clearSelection, getSelection, createGroup, getGroupIdOf, removeKeyFromGroup,
+    toggleSelection, setSelection, clearSelection, getSelection, getCellOpacity, createGroup, getGroupIdOf, removeKeyFromGroup,
   };
 })();

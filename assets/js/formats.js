@@ -96,6 +96,7 @@ const Formats = (() => {
         transform:       _defaultTransform(),
         imageAdjust:     {},
         containerImages: {},
+        cellOpacity:     {},     // opacidad por celda (override del diseño), clave = cellKey
         groups:          [],
         overlays:        [],     // capas-imagen (logos / PNG de texto), por formato
         bgVisible:       true,   // visibilidad de la capa base FONDO
@@ -121,6 +122,7 @@ const Formats = (() => {
     dst.fitted      = false;
     dst.imageAdjust = JSON.parse(JSON.stringify(src.imageAdjust || {}));
     dst.containerImages = { ...(src.containerImages || {}) };
+    dst.cellOpacity = { ...(src.cellOpacity || {}) };
     dst.groups = (src.groups || []).map(g => ({
       id:        g.id,
       cells:     [...(g.cells || [])],
@@ -189,6 +191,8 @@ const Formats = (() => {
     State.transform        = comp.transform;
     State.imageAdjust      = comp.imageAdjust;
     State.containerImages  = comp.containerImages;
+    if (!comp.cellOpacity) comp.cellOpacity = {};   // compat composiciones antiguas
+    State.cellOpacity      = comp.cellOpacity;
     State.groups           = comp.groups;
     State.activeSkeletonId = comp.skeletonId;
 
@@ -206,6 +210,8 @@ const Formats = (() => {
     if (typeof Mosaic3D      !== 'undefined') Mosaic3D.applyFormat(comp);
     // Panel CAPAS + capas-imagen sobre el lienzo de este formato.
     if (typeof Layers        !== 'undefined') Layers.update();
+    // Control contextual de opacidad por carátula (según la selección).
+    if (typeof CellOpacity   !== 'undefined') CellOpacity.update();
     // Etiqueta del botón de mosaico + sliders + offsets según este formato.
     if (typeof Skeletons     !== 'undefined' && Skeletons.refreshActiveLabel) Skeletons.refreshActiveLabel();
     if (typeof UI            !== 'undefined') {
