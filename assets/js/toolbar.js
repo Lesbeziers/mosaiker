@@ -13,12 +13,8 @@
 const Toolbar = (() => {
 
   // Botones que solo aplican al formato → se atenúan si hay selección.
-  //
-  // NOTA: 'desenfoque' es conceptualmente contextual (debería poder ajustarse
-  // también por celda), pero AÚN NO está implementado el desenfoque por-carátula.
-  // Mientras tanto vive aquí (solo-formato). Cuando se implemente: sacar su
-  // data-feat de FORMAT_ONLY y añadirlo a CONTEXTUAL → deja de atenuarse y su
-  // título pasa a alternar Mosaico ↔ Carátula/s (sin más cambios en el Toolbar).
+  // 'desenfoque' es GENERAL (por formato): se probó por celda y se descartó, así
+  // que se queda aquí (solo-formato, se atenúa con selección).
   const FORMAT_ONLY = ['fondo', 'desenfoque'];
   // Botones cuyo ámbito SIGUE a la selección (título Mosaico ↔ Carátula/s).
   const CONTEXTUAL = ['opacidad', 'borde'];
