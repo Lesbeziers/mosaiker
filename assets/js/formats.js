@@ -97,6 +97,9 @@ const Formats = (() => {
         imageAdjust:     {},
         containerImages: {},
         cellOpacity:     {},     // opacidad por celda (override del diseño), clave = cellKey
+        cellBorder:      {},     // borde on/off por celda (override del diseño)
+        cellBorderColor: {},     // color de borde por celda (override)
+        cellBorderWidth: {},     // grosor de borde por celda (override)
         groups:          [],
         overlays:        [],     // capas-imagen (logos / PNG de texto), por formato
         bgVisible:       true,   // visibilidad de la capa base FONDO
@@ -123,6 +126,9 @@ const Formats = (() => {
     dst.imageAdjust = JSON.parse(JSON.stringify(src.imageAdjust || {}));
     dst.containerImages = { ...(src.containerImages || {}) };
     dst.cellOpacity = { ...(src.cellOpacity || {}) };
+    dst.cellBorder      = { ...(src.cellBorder || {}) };
+    dst.cellBorderColor = { ...(src.cellBorderColor || {}) };
+    dst.cellBorderWidth = { ...(src.cellBorderWidth || {}) };
     dst.groups = (src.groups || []).map(g => ({
       id:        g.id,
       cells:     [...(g.cells || [])],
@@ -193,6 +199,12 @@ const Formats = (() => {
     State.containerImages  = comp.containerImages;
     if (!comp.cellOpacity) comp.cellOpacity = {};   // compat composiciones antiguas
     State.cellOpacity      = comp.cellOpacity;
+    if (!comp.cellBorder)      comp.cellBorder = {};       // compat
+    if (!comp.cellBorderColor) comp.cellBorderColor = {};
+    if (!comp.cellBorderWidth) comp.cellBorderWidth = {};
+    State.cellBorder       = comp.cellBorder;
+    State.cellBorderColor  = comp.cellBorderColor;
+    State.cellBorderWidth  = comp.cellBorderWidth;
     State.groups           = comp.groups;
     State.activeSkeletonId = comp.skeletonId;
 
