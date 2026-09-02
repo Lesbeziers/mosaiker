@@ -212,6 +212,8 @@ const Formats = (() => {
     if (typeof Layers        !== 'undefined') Layers.update();
     // Control contextual de opacidad por carátula (según la selección).
     if (typeof CellOpacity   !== 'undefined') CellOpacity.update();
+    // Toolbar de la bottom-bar (dim contextual de botones).
+    if (typeof Toolbar       !== 'undefined' && Toolbar.update) Toolbar.update();
     // Etiqueta del botón de mosaico + sliders + offsets según este formato.
     if (typeof Skeletons     !== 'undefined' && Skeletons.refreshActiveLabel) Skeletons.refreshActiveLabel();
     if (typeof UI            !== 'undefined') {

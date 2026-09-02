@@ -1298,9 +1298,10 @@ const Mosaic3D = (() => {
   }
 
   // ── SELECCIÓN DE CELDAS (shift+clic) ─────────────────────────────────
-  // Avisa al control contextual de opacidad cuando cambia la selección.
+  // Avisa a los controles contextuales cuando cambia la selección.
   function _notifySelection() {
     if (typeof CellOpacity !== 'undefined' && CellOpacity.update) CellOpacity.update();
+    if (typeof Toolbar !== 'undefined' && Toolbar.update) Toolbar.update();
   }
   function toggleSelection(key) {
     if (!key) return;

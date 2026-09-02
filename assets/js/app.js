@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await Mosaic3D.init();
   Skeletons.init();
   ImageAdjust.init();
+  Toolbar.init();   // toolbar de botones + popovers de la bottom-bar
   // Sólo aplica un esqueleto si hay uno activo (p.ej. tras cargar proyecto).
   // De arranque activeSkeletonId es null → el botón queda en "Selecciona un mosaico".
   if (State.activeSkeletonId) Skeletons.setActive(State.activeSkeletonId);
