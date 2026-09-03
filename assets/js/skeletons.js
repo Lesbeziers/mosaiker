@@ -272,6 +272,9 @@ const Skeletons = (() => {
       id:   'horizontal',
       name: 'ZIG-ZAG',
       type: 'stacks',
+      // Offset ajustable por columna (además del escalonado fijo `drop`). Todo a
+      // 0 = aspecto por defecto; el usuario puede subir/bajar cada columna.
+      defaultOffsets: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       cols: [
         // ── bloque izquierdo (igual que ZIG-ZAG + SELLO) ──
         { drop: 0,   cells: [ { n: 10, opacity: 0.2 }, { n: 1,  opacity: 1   } ] },
@@ -308,6 +311,9 @@ const Skeletons = (() => {
       name: 'ZIG-ZAG + SELLO',
       type: 'stacks',
       band: { after: 4 }, // ancho de la calle = ancho de carátula (VERT_W)
+      // Offset ajustable por columna (además del `drop` fijo). Todo a 0 = aspecto
+      // por defecto.
+      defaultOffsets: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       cols: [
         { drop: 0,   cells: [ { n: 10, opacity: 0.2 }, { n: 1,  opacity: 1   } ] },
         { drop: 0.5, cells: [ { n: 2,  opacity: 1   }, { n: 9,  opacity: 0.2 } ] },

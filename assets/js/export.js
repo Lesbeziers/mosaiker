@@ -653,11 +653,18 @@ const Export = (() => {
     const bandAfter = esq.band ? esq.band.after : -1;
     const bandW     = (esq.band && esq.band.width) || VERT_W;
 
+    // Offset por columna (espejo de mosaic-3d._buildStacks).
+    const numCols = esq.cols.length;
+    const stateOffsets = p?.colOffsets;
+    const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numCols)
+      ? stateOffsets
+      : (esq.defaultOffsets || new Array(numCols).fill(0));
+
     const cells = [];
     let cursor = 0, maxX = 0, topMost = -Infinity, bottomMost = Infinity, laneX = null;
     esq.cols.forEach((col, ci) => {
       const drop = col.drop || 0;
-      let top = -drop * step;
+      let top = -drop * step + (offsets[ci] || 0);
       col.cells.forEach(c => {
         const cy = top - CELL_H / 2;
         cells.push({ x: cursor, cy, n: c.n, opacity: c.opacity ?? 1 });

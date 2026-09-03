@@ -524,12 +524,20 @@ const Mosaic3D = (() => {
     // 1) Calcula posiciones de cada celda y los límites del mosaico.
     //    La banda se inserta como una "calle" entre dos columnas, con su
     //    propio gap a cada lado (igual que la separación entre columnas).
+    // Offset ajustable por columna (sumado al escalonado fijo `drop`). Se lee del
+    // estado; si no coincide con el nº de columnas, cae a defaultOffsets o ceros.
+    const numCols = esq.cols.length;
+    const stateOffsets = State?.transform?.colOffsets;
+    const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numCols)
+      ? stateOffsets
+      : (esq.defaultOffsets || new Array(numCols).fill(0));
+
     const cells = [];
     let cursor = 0, maxX = 0, topMost = -Infinity, bottomMost = Infinity;
     let laneX = null;
     esq.cols.forEach((col, ci) => {
       const drop = col.drop || 0;
-      let top = -drop * step;
+      let top = -drop * step + (offsets[ci] || 0);
       col.cells.forEach(c => {
         const cy = top - CELL_H / 2;
         cells.push({ x: cursor, cy, n: c.n, opacity: c.opacity ?? 1 });
