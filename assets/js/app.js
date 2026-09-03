@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   MosaicBlur.init();
   StacksBorder.init();
   Shadow.init();
+  Glow.init();
   Background.init();
   Layers.init();
   Project.init();

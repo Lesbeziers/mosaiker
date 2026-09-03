@@ -105,6 +105,10 @@ const Formats = (() => {
         cellShadowX:     {},     // offset X de sombra por celda
         cellShadowY:     {},     // offset Y de sombra por celda
         cellShadowBlur:  {},     // desenfoque de sombra por celda
+        cellGlow:        {},     // glow on/off por celda
+        cellGlowColor:   {},     // color de glow por celda
+        cellGlowIntensity: {},   // intensidad de glow por celda
+        cellGlowBlur:    {},     // desenfoque de glow por celda
         groups:          [],
         overlays:        [],     // capas-imagen (logos / PNG de texto), por formato
         bgVisible:       true,   // visibilidad de la capa base FONDO
@@ -139,6 +143,10 @@ const Formats = (() => {
     dst.cellShadowX       = { ...(src.cellShadowX || {}) };
     dst.cellShadowY       = { ...(src.cellShadowY || {}) };
     dst.cellShadowBlur    = { ...(src.cellShadowBlur || {}) };
+    dst.cellGlow          = { ...(src.cellGlow || {}) };
+    dst.cellGlowColor     = { ...(src.cellGlowColor || {}) };
+    dst.cellGlowIntensity = { ...(src.cellGlowIntensity || {}) };
+    dst.cellGlowBlur      = { ...(src.cellGlowBlur || {}) };
     dst.groups = (src.groups || []).map(g => ({
       id:        g.id,
       cells:     [...(g.cells || [])],
@@ -225,6 +233,14 @@ const Formats = (() => {
     State.cellShadowX       = comp.cellShadowX;
     State.cellShadowY       = comp.cellShadowY;
     State.cellShadowBlur    = comp.cellShadowBlur;
+    if (!comp.cellGlow)          comp.cellGlow = {};       // compat: glow por celda
+    if (!comp.cellGlowColor)     comp.cellGlowColor = {};
+    if (!comp.cellGlowIntensity) comp.cellGlowIntensity = {};
+    if (!comp.cellGlowBlur)      comp.cellGlowBlur = {};
+    State.cellGlow          = comp.cellGlow;
+    State.cellGlowColor     = comp.cellGlowColor;
+    State.cellGlowIntensity = comp.cellGlowIntensity;
+    State.cellGlowBlur      = comp.cellGlowBlur;
     State.groups           = comp.groups;
     State.activeSkeletonId = comp.skeletonId;
 
@@ -237,6 +253,7 @@ const Formats = (() => {
     if (typeof MosaicBlur    !== 'undefined') MosaicBlur.update();
     if (typeof StacksBorder  !== 'undefined') StacksBorder.update();
     if (typeof Shadow        !== 'undefined') Shadow.update();
+    if (typeof Glow          !== 'undefined') Glow.update();
     if (typeof Background    !== 'undefined') Background.update();
     // Aplica el mosaico + transform de este formato (auto-encuadre la 1ª vez,
     // restaura el encuadre guardado las siguientes).

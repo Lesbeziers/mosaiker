@@ -120,6 +120,11 @@ const State = {
   shadowY: {},
   shadowBlur: {},      // 0..1
 
+  // Glow (halo de color neón) por celda — valores POR DEFECTO del formato.
+  glowColor: {},       // hex
+  glowIntensity: {},   // 0..1
+  glowBlur: {},        // 0..1
+
   // Grupos de celdas ("contenedor virtual") del formato activo. PUNTERO a la
   // composición activa (lo sincroniza Formats.setActive), igual que imageAdjust.
   // Cada grupo: { id, cells:[key], image, cacheKey, transform:{dx,dy,scale} }.

@@ -8,12 +8,12 @@
        el CSS/JS nuevo tras cada despliegue (evita que el equipo se quede con una
        versión vieja cacheada). Súbelo (buscar y reemplazar ?v=) en cada release
        que toque assets. -->
-  <link rel="stylesheet" href="assets/css/base.css?v=20260717l" />
-  <link rel="stylesheet" href="assets/css/layout.css?v=20260717l" />
-  <link rel="stylesheet" href="assets/css/ui.css?v=20260717l" />
-  <link rel="stylesheet" href="assets/css/panel.css?v=20260717l" />
-  <link rel="stylesheet" href="assets/css/bottombar.css?v=20260717l" />
-  <link rel="stylesheet" href="assets/css/layers.css?v=20260717l" />
+  <link rel="stylesheet" href="assets/css/base.css?v=20260717m" />
+  <link rel="stylesheet" href="assets/css/layout.css?v=20260717m" />
+  <link rel="stylesheet" href="assets/css/ui.css?v=20260717m" />
+  <link rel="stylesheet" href="assets/css/panel.css?v=20260717m" />
+  <link rel="stylesheet" href="assets/css/bottombar.css?v=20260717m" />
+  <link rel="stylesheet" href="assets/css/layers.css?v=20260717m" />
 </head>
 <body>
 
@@ -197,6 +197,7 @@
           <button class="bb-btn" data-feat="opacidad">Transparencia</button>
           <button class="bb-btn" data-feat="borde">Borde</button>
           <button class="bb-btn" data-feat="shadow">Sombra</button>
+          <button class="bb-btn" data-feat="glow">Glow</button>
           <div class="bb-sep"></div>
           <button class="bb-btn" data-feat="guias">Guías</button>
         </div>
@@ -223,6 +224,10 @@
           <span class="bb-pop-title">Sombra Mosaico</span>
           <div id="bb-shadow"></div>
         </div>
+        <div class="bb-pop" data-feat="glow">
+          <span class="bb-pop-title">Glow Mosaico</span>
+          <div id="bb-glow"></div>
+        </div>
         <div class="bb-pop" data-feat="guias">
           <span class="bb-pop-title">Guías Mosaico</span>
           <div id="bb-overlays"></div>
@@ -236,28 +241,29 @@
 
 <div id="custom-tooltip"></div>
 
-<script src="assets/js/jszip.min.js?v=20260717l"></script>
-<script src="assets/js/state.js?v=20260717l"></script>
-<script src="assets/js/canvas.js?v=20260717l"></script>
-<script src="assets/js/overlays.js?v=20260717l"></script>
-<script src="assets/js/vignettes.js?v=20260717l"></script>
-<script src="assets/js/mosaic-opacity.js?v=20260717l"></script>
-<script src="assets/js/cell-opacity.js?v=20260717l"></script>
-<script src="assets/js/mosaic-blur.js?v=20260717l"></script>
-<script src="assets/js/stacks-border.js?v=20260717l"></script>
-<script src="assets/js/shadow.js?v=20260717l"></script>
-<script src="assets/js/background.js?v=20260717l"></script>
-<script src="assets/js/image-adjust.js?v=20260717l"></script>
-<script src="assets/js/formats.js?v=20260717l"></script>
-<script src="assets/js/images.js?v=20260717l"></script>
-<script src="assets/js/mosaic-3d.js?v=20260717l"></script>
-<script src="assets/js/skeletons.js?v=20260717l"></script>
-<script src="assets/js/layers.js?v=20260717l"></script>
-<script src="assets/js/project.js?v=20260717l"></script>
-<script src="assets/js/export.js?v=20260717l"></script>
-<script src="assets/js/ui.js?v=20260717l"></script>
-<script src="assets/js/toolbar.js?v=20260717l"></script>
-<script src="assets/js/app.js?v=20260717l"></script>
+<script src="assets/js/jszip.min.js?v=20260717m"></script>
+<script src="assets/js/state.js?v=20260717m"></script>
+<script src="assets/js/canvas.js?v=20260717m"></script>
+<script src="assets/js/overlays.js?v=20260717m"></script>
+<script src="assets/js/vignettes.js?v=20260717m"></script>
+<script src="assets/js/mosaic-opacity.js?v=20260717m"></script>
+<script src="assets/js/cell-opacity.js?v=20260717m"></script>
+<script src="assets/js/mosaic-blur.js?v=20260717m"></script>
+<script src="assets/js/stacks-border.js?v=20260717m"></script>
+<script src="assets/js/shadow.js?v=20260717m"></script>
+<script src="assets/js/glow.js?v=20260717m"></script>
+<script src="assets/js/background.js?v=20260717m"></script>
+<script src="assets/js/image-adjust.js?v=20260717m"></script>
+<script src="assets/js/formats.js?v=20260717m"></script>
+<script src="assets/js/images.js?v=20260717m"></script>
+<script src="assets/js/mosaic-3d.js?v=20260717m"></script>
+<script src="assets/js/skeletons.js?v=20260717m"></script>
+<script src="assets/js/layers.js?v=20260717m"></script>
+<script src="assets/js/project.js?v=20260717m"></script>
+<script src="assets/js/export.js?v=20260717m"></script>
+<script src="assets/js/ui.js?v=20260717m"></script>
+<script src="assets/js/toolbar.js?v=20260717m"></script>
+<script src="assets/js/app.js?v=20260717m"></script>
 
 </body>
 </html>

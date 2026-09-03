@@ -216,6 +216,9 @@ const Project = (() => {
     State.shadowX           = { ...(data.shadowX          || {}) };
     State.shadowY           = { ...(data.shadowY          || {}) };
     State.shadowBlur        = { ...(data.shadowBlur       || {}) };
+    State.glowColor         = { ...(data.glowColor        || {}) };
+    State.glowIntensity     = { ...(data.glowIntensity    || {}) };
+    State.glowBlur          = { ...(data.glowBlur         || {}) };
     State.backgrounds       = { ...(data.backgrounds      || {}) };
     State.backgroundImages  = { ...(data.backgroundImages || {}) };
     State.formatsOk         = { ...(data.formatsOk        || {}) };
@@ -399,6 +402,9 @@ const Project = (() => {
       shadowX:         { ...State.shadowX },
       shadowY:         { ...State.shadowY },
       shadowBlur:      { ...State.shadowBlur },
+      glowColor:       { ...State.glowColor },
+      glowIntensity:   { ...State.glowIntensity },
+      glowBlur:        { ...State.glowBlur },
       backgrounds:     { ...State.backgrounds },
       backgroundImages:{ ...State.backgroundImages },
       formatsOk:       { ...State.formatsOk },

@@ -800,12 +800,57 @@ const Export = (() => {
     pivot.add(mesh);
   }
 
+  // ── GLOW POR CELDA (export) — espejo de mosaic-3d._addCellGlow ──
+  function _exGlowColor(key) {
+    const ov = (_exComp && _exComp.cellGlowColor) ? _exComp.cellGlowColor[key] : undefined;
+    if (typeof ov === 'string' && ov) return ov;
+    const g = (typeof State !== 'undefined' && State.glowColor) ? State.glowColor[_exFormatId] : undefined;
+    return (typeof g === 'string' && g) ? g : '#00c8ff';
+  }
+  function _exGlowTexture(THREE, w, h, r, color, blurFrac) {
+    const K = 400;
+    const blurPx = Math.max(0, blurFrac) * 0.14 * Math.min(w, h) * K;
+    const base   = Math.max(2, Math.min(w, h) * K * 0.02);
+    const margin = Math.ceil(blurPx * 1.8 + base + 2);
+    const rw = Math.round(w * K), rh = Math.round(h * K);
+    const cw = rw + 2 * margin, ch = rh + 2 * margin;
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    const cx = c.getContext('2d');
+    cx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
+    cx.strokeStyle = color; cx.lineWidth = base; cx.lineJoin = 'round';
+    _exRoundRect(cx, margin, margin, rw, rh, r * K);
+    cx.stroke();
+    cx.filter = 'none';
+    const t = new THREE.Texture(c);
+    t.minFilter = THREE.LinearMipMapLinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = true;
+    t.needsUpdate = true;
+    return { tex: t, meshW: cw / K, meshH: ch / K };
+  }
+  function _exAddGlow(THREE, pivot, x, centerY, w, h, r, key) {
+    const on = (_exComp && _exComp.cellGlow && typeof _exComp.cellGlow[key] === 'boolean') ? _exComp.cellGlow[key] : false;
+    if (!on) return;
+    const inten = _exShVal('cellGlowIntensity', 'glowIntensity', key, 0.85);
+    if (inten <= 0) return;
+    const bl = _exShVal('cellGlowBlur', 'glowBlur', key, 0.4);
+    const { tex, meshW, meshH } = _exGlowTexture(THREE, w, h, r, _exGlowColor(key), bl);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: inten, depthWrite: false, blending: THREE.AdditiveBlending });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(meshW, meshH), mat);
+    mesh.position.set(x + w / 2, centerY, 0.004);
+    pivot.add(mesh);
+  }
+
   function _addMesh(THREE, pivot, slot, x, centerY, w, h, p, getTexture) {
     const key = _exSkeletonId + ':' + _exSlotIndex;
     _exSlotIndex++;
     const r   = ((p.radius ?? 12) / 1000) * CELL_H;
     // Sombra por celda (detrás). Debe coincidir con mosaic-3d._addCellShadow.
     _exAddShadow(THREE, pivot, x, centerY, w, h, r, key);
+    // Glow por celda (encima, aditivo). Espejo de mosaic-3d._addCellGlow.
+    _exAddGlow(THREE, pivot, x, centerY, w, h, r, key);
+    // Glow por celda (encima, aditivo). Espejo de mosaic-3d._addCellGlow.
+    _exAddGlow(THREE, pivot, x, centerY, w, h, r, key);
     // Imagen efectiva: vinculada al ÍNDICE de imagen (formatId::n) o índice del
     // esqueleto. Coincide con el editor (sustitución por imagen, no por hueco).
     const bound  = (_exComp && _exComp.containerImages && _exComp.containerImages[slot.n]);

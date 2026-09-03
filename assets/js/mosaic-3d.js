@@ -1514,6 +1514,7 @@ const Mosaic3D = (() => {
     if (typeof CellOpacity !== 'undefined' && CellOpacity.update) CellOpacity.update();
     if (typeof StacksBorder !== 'undefined' && StacksBorder.update) StacksBorder.update();
     if (typeof Shadow !== 'undefined' && Shadow.update) Shadow.update();
+    if (typeof Glow !== 'undefined' && Glow.update) Glow.update();
     if (typeof Toolbar !== 'undefined' && Toolbar.update) Toolbar.update();
   }
   function toggleSelection(key) {
