@@ -747,10 +747,65 @@ const Export = (() => {
     return (px / refH) * visH;
   }
 
+  // ── SOMBRA POR CELDA (export) — espejo de mosaic-3d._addCellShadow ──
+  function _exShVal(cellMap, fmtMap, key, def) {
+    const ov = (_exComp && _exComp[cellMap]) ? _exComp[cellMap][key] : undefined;
+    if (typeof ov === 'number') return ov;
+    const g = (typeof State !== 'undefined' && State[fmtMap]) ? State[fmtMap][_exFormatId] : undefined;
+    return (typeof g === 'number') ? g : def;
+  }
+  function _exRoundRect(ctx, x, y, w, h, r) {
+    r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x,     y + h, r);
+    ctx.arcTo(x,     y + h, x,     y,     r);
+    ctx.arcTo(x,     y,     x + w, y,     r);
+    ctx.closePath();
+  }
+  function _exShadowTexture(THREE, w, h, r, blurFrac) {
+    const K = 400;
+    const blurPx = Math.max(0, blurFrac) * 0.15 * Math.min(w, h) * K;
+    const margin = Math.ceil(blurPx * 1.8 + 2);
+    const rw = Math.round(w * K), rh = Math.round(h * K);
+    const cw = rw + 2 * margin, ch = rh + 2 * margin;
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    const cx = c.getContext('2d');
+    cx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
+    cx.fillStyle = '#000';
+    _exRoundRect(cx, margin, margin, rw, rh, r * K);
+    cx.fill();
+    cx.filter = 'none';
+    const t = new THREE.Texture(c);
+    t.minFilter = THREE.LinearMipMapLinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = true;
+    t.needsUpdate = true;
+    return { tex: t, meshW: cw / K, meshH: ch / K };
+  }
+  function _exAddShadow(THREE, pivot, x, centerY, w, h, r, key) {
+    const on = (_exComp && _exComp.cellShadow && typeof _exComp.cellShadow[key] === 'boolean') ? _exComp.cellShadow[key] : false;
+    if (!on) return;
+    const op = _exShVal('cellShadowOpacity', 'shadowOpacity', key, 0.45);
+    if (op <= 0) return;
+    const nx = _exShVal('cellShadowX', 'shadowX', key, 0);
+    const ny = _exShVal('cellShadowY', 'shadowY', key, 0);
+    const bl = _exShVal('cellShadowBlur', 'shadowBlur', key, 0.35);
+    const minD = Math.min(w, h);
+    const { tex, meshW, meshH } = _exShadowTexture(THREE, w, h, r, bl);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: op, depthWrite: false });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(meshW, meshH), mat);
+    mesh.position.set(x + w / 2 + nx * minD, centerY + ny * minD, -0.02);
+    pivot.add(mesh);
+  }
+
   function _addMesh(THREE, pivot, slot, x, centerY, w, h, p, getTexture) {
     const key = _exSkeletonId + ':' + _exSlotIndex;
     _exSlotIndex++;
     const r   = ((p.radius ?? 12) / 1000) * CELL_H;
+    // Sombra por celda (detrás). Debe coincidir con mosaic-3d._addCellShadow.
+    _exAddShadow(THREE, pivot, x, centerY, w, h, r, key);
     // Imagen efectiva: vinculada al ÍNDICE de imagen (formatId::n) o índice del
     // esqueleto. Coincide con el editor (sustitución por imagen, no por hueco).
     const bound  = (_exComp && _exComp.containerImages && _exComp.containerImages[slot.n]);

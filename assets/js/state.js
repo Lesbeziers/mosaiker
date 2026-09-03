@@ -113,6 +113,13 @@ const State = {
   // Color del marco por formato. clave = formatId, valor = hex. Ausente = blanco.
   stacksBorderColor: {},
 
+  // Sombra (drop shadow) por celda — valores POR DEFECTO del formato (fallback de
+  // los overrides por celda que viven en la composición). clave = formatId.
+  shadowOpacity: {},   // 0..1
+  shadowX: {},         // -0.5..0.5 (fracción de la dimensión menor)
+  shadowY: {},
+  shadowBlur: {},      // 0..1
+
   // Grupos de celdas ("contenedor virtual") del formato activo. PUNTERO a la
   // composición activa (lo sincroniza Formats.setActive), igual que imageAdjust.
   // Cada grupo: { id, cells:[key], image, cacheKey, transform:{dx,dy,scale} }.

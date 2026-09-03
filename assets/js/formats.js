@@ -100,6 +100,11 @@ const Formats = (() => {
         cellBorder:      {},     // borde on/off por celda (override del diseño)
         cellBorderColor: {},     // color de borde por celda (override)
         cellBorderWidth: {},     // grosor de borde por celda (override)
+        cellShadow:      {},     // sombra on/off por celda (override)
+        cellShadowOpacity: {},   // opacidad de sombra por celda
+        cellShadowX:     {},     // offset X de sombra por celda
+        cellShadowY:     {},     // offset Y de sombra por celda
+        cellShadowBlur:  {},     // desenfoque de sombra por celda
         groups:          [],
         overlays:        [],     // capas-imagen (logos / PNG de texto), por formato
         bgVisible:       true,   // visibilidad de la capa base FONDO
@@ -129,6 +134,11 @@ const Formats = (() => {
     dst.cellBorder      = { ...(src.cellBorder || {}) };
     dst.cellBorderColor = { ...(src.cellBorderColor || {}) };
     dst.cellBorderWidth = { ...(src.cellBorderWidth || {}) };
+    dst.cellShadow        = { ...(src.cellShadow || {}) };
+    dst.cellShadowOpacity = { ...(src.cellShadowOpacity || {}) };
+    dst.cellShadowX       = { ...(src.cellShadowX || {}) };
+    dst.cellShadowY       = { ...(src.cellShadowY || {}) };
+    dst.cellShadowBlur    = { ...(src.cellShadowBlur || {}) };
     dst.groups = (src.groups || []).map(g => ({
       id:        g.id,
       cells:     [...(g.cells || [])],
@@ -205,6 +215,16 @@ const Formats = (() => {
     State.cellBorder       = comp.cellBorder;
     State.cellBorderColor  = comp.cellBorderColor;
     State.cellBorderWidth  = comp.cellBorderWidth;
+    if (!comp.cellShadow)        comp.cellShadow = {};       // compat: sombra por celda
+    if (!comp.cellShadowOpacity) comp.cellShadowOpacity = {};
+    if (!comp.cellShadowX)       comp.cellShadowX = {};
+    if (!comp.cellShadowY)       comp.cellShadowY = {};
+    if (!comp.cellShadowBlur)    comp.cellShadowBlur = {};
+    State.cellShadow        = comp.cellShadow;
+    State.cellShadowOpacity = comp.cellShadowOpacity;
+    State.cellShadowX       = comp.cellShadowX;
+    State.cellShadowY       = comp.cellShadowY;
+    State.cellShadowBlur    = comp.cellShadowBlur;
     State.groups           = comp.groups;
     State.activeSkeletonId = comp.skeletonId;
 
@@ -216,6 +236,7 @@ const Formats = (() => {
     if (typeof MosaicOpacity !== 'undefined') MosaicOpacity.update();
     if (typeof MosaicBlur    !== 'undefined') MosaicBlur.update();
     if (typeof StacksBorder  !== 'undefined') StacksBorder.update();
+    if (typeof Shadow        !== 'undefined') Shadow.update();
     if (typeof Background    !== 'undefined') Background.update();
     // Aplica el mosaico + transform de este formato (auto-encuadre la 1ª vez,
     // restaura el encuadre guardado las siguientes).

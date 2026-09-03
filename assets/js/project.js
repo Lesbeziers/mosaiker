@@ -212,6 +212,10 @@ const Project = (() => {
     State.stacksBorder      = { ...(data.stacksBorder     || {}) };
     State.stacksBorderWidth = { ...(data.stacksBorderWidth || {}) };
     State.stacksBorderColor = { ...(data.stacksBorderColor || {}) };
+    State.shadowOpacity     = { ...(data.shadowOpacity    || {}) };
+    State.shadowX           = { ...(data.shadowX          || {}) };
+    State.shadowY           = { ...(data.shadowY          || {}) };
+    State.shadowBlur        = { ...(data.shadowBlur       || {}) };
     State.backgrounds       = { ...(data.backgrounds      || {}) };
     State.backgroundImages  = { ...(data.backgroundImages || {}) };
     State.formatsOk         = { ...(data.formatsOk        || {}) };
@@ -391,6 +395,10 @@ const Project = (() => {
       stacksBorder:    { ...State.stacksBorder },
       stacksBorderWidth: { ...State.stacksBorderWidth },
       stacksBorderColor: { ...State.stacksBorderColor },
+      shadowOpacity:   { ...State.shadowOpacity },
+      shadowX:         { ...State.shadowX },
+      shadowY:         { ...State.shadowY },
+      shadowBlur:      { ...State.shadowBlur },
       backgrounds:     { ...State.backgrounds },
       backgroundImages:{ ...State.backgroundImages },
       formatsOk:       { ...State.formatsOk },

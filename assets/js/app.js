@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   CellOpacity.init();
   MosaicBlur.init();
   StacksBorder.init();
+  Shadow.init();
   Background.init();
   Layers.init();
   Project.init();
