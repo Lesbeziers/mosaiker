@@ -51,16 +51,19 @@ const Toolbar = (() => {
     if (!pop) return;
     pop.classList.add('open');
     btn.classList.add('open');
-    // Ancla el popover a la izquierda del botón; corrige si se sale por la derecha.
+    // Centra el popover sobre el botón; corrige si se sale por cualquier lado.
     const bar = document.getElementById('bottombar');
-    pop.style.left = btn.offsetLeft + 'px';
-    requestAnimationFrame(() => {
-      const pr = pop.getBoundingClientRect();
-      const br = bar.getBoundingClientRect();
-      if (pr.right > br.right - 8) {
-        pop.style.left = Math.max(8, btn.offsetLeft - (pr.right - (br.right - 8))) + 'px';
-      }
-    });
+    const center = btn.offsetLeft + btn.offsetWidth / 2;
+    const place = () => {
+      const pw = pop.offsetWidth;
+      const barW = bar.clientWidth;
+      let left = center - pw / 2;
+      if (left + pw > barW - 8) left = barW - 8 - pw;
+      if (left < 8) left = 8;
+      pop.style.left = left + 'px';
+    };
+    place();                          // colocación inicial (ya es display:flex)
+    requestAnimationFrame(place);     // reajusta cuando el layout está estable
     _open = feat;
   }
 
