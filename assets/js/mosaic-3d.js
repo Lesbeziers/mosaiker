@@ -697,6 +697,29 @@ const Mosaic3D = (() => {
     return (typeof ov === 'number' && ov >= 0) ? ov : _stacksBorderWidth();
   }
 
+  // Escuadras de selección: 4 marcas en L en las esquinas del contenedor,
+  // dibujadas ENCIMA (sin relleno) → marcan la selección sin tapar el borde ni
+  // transparentarse sobre la celda.
+  function _addSelectionCorners(x, centerY, w, h) {
+    const t  = _borderWorld(2.5);                 // grosor de la escuadra
+    const L  = Math.min(w, h) * 0.20;             // largo del brazo (proporcional)
+    const cx = x + w / 2;
+    const hw = w / 2, hh = h / 2;
+    const mat = new THREE.MeshBasicMaterial({ color: 0xf0a500, side: THREE.FrontSide, transparent: true, opacity: 1 });
+    [[-1, 1], [1, 1], [1, -1], [-1, -1]].forEach(([sx, sy]) => {
+      // Brazo horizontal (desde la esquina hacia dentro).
+      const hMesh = new THREE.Mesh(new THREE.PlaneGeometry(L, t), mat);
+      hMesh.position.set(cx + sx * hw - sx * L / 2, centerY + sy * hh - sy * t / 2, 0.003);
+      hMesh.renderOrder = 2;
+      pivot.add(hMesh);
+      // Brazo vertical.
+      const vMesh = new THREE.Mesh(new THREE.PlaneGeometry(t, L), mat);
+      vMesh.position.set(cx + sx * hw - sx * t / 2, centerY + sy * hh - sy * L / 2, 0.003);
+      vMesh.renderOrder = 2;
+      pivot.add(vMesh);
+    });
+  }
+
   function _addMesh(slot, x, centerY, w, h) {
     const r = (params.radius / 1000) * CELL_H;
 
@@ -713,7 +736,12 @@ const Mosaic3D = (() => {
     const isDropHint = !_capturing && _dropHintKey && slotKey === _dropHintKey;
     const isFocus    = !_capturing && !_dropHintKey && slotKey === _highlightKey;
     const isSelected = !_capturing && _selectedKeys.has(slotKey);
-    if (isDropHint || isFocus || isSelected) {
+    if (isSelected) {
+      // Selección → escuadras en las esquinas (encima, sin relleno): no tapan el
+      // borde ni se transparentan → se ve bien el borde/color/grosor y la opacidad.
+      _addSelectionCorners(x, centerY, w, h);
+    } else if (isDropHint || isFocus) {
+      // Foco de interacción / pista de drop → placa amarilla detrás (transitorio).
       const hb   = _borderWorld(3);
       const hGeo = _makeRoundedRect(w + 2 * hb, h + 2 * hb, r + hb, null);
       const hMat = new THREE.MeshBasicMaterial({ color: 0xf0a500, side: THREE.FrontSide, transparent: true, opacity: 1 });
