@@ -8,12 +8,12 @@
        el CSS/JS nuevo tras cada despliegue (evita que el equipo se quede con una
        versión vieja cacheada). Súbelo (buscar y reemplazar ?v=) en cada release
        que toque assets. -->
-  <link rel="stylesheet" href="assets/css/base.css?v=20260716l" />
-  <link rel="stylesheet" href="assets/css/layout.css?v=20260716l" />
-  <link rel="stylesheet" href="assets/css/ui.css?v=20260716l" />
-  <link rel="stylesheet" href="assets/css/panel.css?v=20260716l" />
-  <link rel="stylesheet" href="assets/css/bottombar.css?v=20260716l" />
-  <link rel="stylesheet" href="assets/css/layers.css?v=20260716l" />
+  <link rel="stylesheet" href="assets/css/base.css?v=20260717o" />
+  <link rel="stylesheet" href="assets/css/layout.css?v=20260717o" />
+  <link rel="stylesheet" href="assets/css/ui.css?v=20260717o" />
+  <link rel="stylesheet" href="assets/css/panel.css?v=20260717o" />
+  <link rel="stylesheet" href="assets/css/bottombar.css?v=20260717o" />
+  <link rel="stylesheet" href="assets/css/layers.css?v=20260717o" />
 </head>
 <body>
 
@@ -189,19 +189,49 @@
       <div id="ver-todas-area"></div>
 
       <div id="bottombar">
-        <div class="bb-block"><div id="bb-background"></div></div>
-        <div class="bb-sep"></div>
-        <div class="bb-block">
-          <span class="bb-block-title">Opacidad</span>
-          <div id="bb-opacity"></div>
-          <div id="bb-cell-opacity"></div>
+        <!-- Toolbar de botones. Cada botón abre su popover (Toolbar.js). El dim
+             contextual (según selección) y el posicionado lo gestiona Toolbar. -->
+        <div id="bb-buttons">
+          <button class="bb-btn" data-feat="fondo">Fondo</button>
+          <button class="bb-btn" data-feat="desenfoque">Desenfoque</button>
+          <button class="bb-btn" data-feat="opacidad">Transparencia</button>
+          <button class="bb-btn" data-feat="borde">Borde</button>
+          <button class="bb-btn" data-feat="shadow">Sombra</button>
+          <button class="bb-btn" data-feat="glow">Glow</button>
+          <div class="bb-sep"></div>
+          <button class="bb-btn" data-feat="guias">Guías</button>
         </div>
-        <div class="bb-sep"></div>
-        <div class="bb-block"><div id="bb-blur"></div></div>
-        <div class="bb-sep"></div>
-        <div class="bb-block"><div id="bb-stacks-border"></div></div>
-        <div class="bb-sep"></div>
-        <div class="bb-block"><div id="bb-overlays"></div></div>
+
+        <!-- Popovers (ocultos). Alojan los contenedores que rellenan los módulos
+             existentes; Toolbar muestra el que corresponde, anclado al botón. -->
+        <div class="bb-pop" data-feat="fondo">
+          <span class="bb-pop-title">Fondo Mosaico</span>
+          <div id="bb-background"></div>
+        </div>
+        <div class="bb-pop" data-feat="opacidad">
+          <span class="bb-pop-title">Transparencia Mosaico</span>
+          <div id="bb-opacity"></div>
+        </div>
+        <div class="bb-pop" data-feat="desenfoque">
+          <span class="bb-pop-title">Desenfoque Mosaico</span>
+          <div id="bb-blur"></div>
+        </div>
+        <div class="bb-pop" data-feat="borde">
+          <span class="bb-pop-title">Borde Mosaico</span>
+          <div id="bb-stacks-border"></div>
+        </div>
+        <div class="bb-pop" data-feat="shadow">
+          <span class="bb-pop-title">Sombra Mosaico</span>
+          <div id="bb-shadow"></div>
+        </div>
+        <div class="bb-pop" data-feat="glow">
+          <span class="bb-pop-title">Glow Mosaico</span>
+          <div id="bb-glow"></div>
+        </div>
+        <div class="bb-pop" data-feat="guias">
+          <span class="bb-pop-title">Guías Mosaico</span>
+          <div id="bb-overlays"></div>
+        </div>
       </div>
     </div>
 
@@ -211,26 +241,30 @@
 
 <div id="custom-tooltip"></div>
 
-<script src="assets/js/jszip.min.js?v=20260716l"></script>
-<script src="assets/js/state.js?v=20260716l"></script>
-<script src="assets/js/canvas.js?v=20260716l"></script>
-<script src="assets/js/overlays.js?v=20260716l"></script>
-<script src="assets/js/vignettes.js?v=20260716l"></script>
-<script src="assets/js/mosaic-opacity.js?v=20260716l"></script>
-<script src="assets/js/cell-opacity.js?v=20260716l"></script>
-<script src="assets/js/mosaic-blur.js?v=20260716l"></script>
-<script src="assets/js/stacks-border.js?v=20260716l"></script>
-<script src="assets/js/background.js?v=20260716l"></script>
-<script src="assets/js/image-adjust.js?v=20260716l"></script>
-<script src="assets/js/formats.js?v=20260716l"></script>
-<script src="assets/js/images.js?v=20260716l"></script>
-<script src="assets/js/mosaic-3d.js?v=20260716l"></script>
-<script src="assets/js/skeletons.js?v=20260716l"></script>
-<script src="assets/js/layers.js?v=20260716l"></script>
-<script src="assets/js/project.js?v=20260716l"></script>
-<script src="assets/js/export.js?v=20260716l"></script>
-<script src="assets/js/ui.js?v=20260716l"></script>
-<script src="assets/js/app.js?v=20260716l"></script>
+<script src="assets/js/jszip.min.js?v=20260717o"></script>
+<script src="assets/js/state.js?v=20260717o"></script>
+<script src="assets/js/canvas.js?v=20260717o"></script>
+<script src="assets/js/overlays.js?v=20260717o"></script>
+<script src="assets/js/vignettes.js?v=20260717o"></script>
+<script src="assets/js/mosaic-opacity.js?v=20260717o"></script>
+<script src="assets/js/cell-opacity.js?v=20260717o"></script>
+<script src="assets/js/mosaic-blur.js?v=20260717o"></script>
+<script src="assets/js/stacks-border.js?v=20260717o"></script>
+<script src="assets/js/shadow.js?v=20260717o"></script>
+<script src="assets/js/glow.js?v=20260717o"></script>
+<script src="assets/js/background.js?v=20260717o"></script>
+<script src="assets/js/image-adjust.js?v=20260717o"></script>
+<script src="assets/js/formats.js?v=20260717o"></script>
+<script src="assets/js/images.js?v=20260717o"></script>
+<script src="assets/js/mosaic-3d.js?v=20260717o"></script>
+<script src="assets/js/skeletons.js?v=20260717o"></script>
+<script src="assets/js/layers.js?v=20260717o"></script>
+<script src="assets/js/project.js?v=20260717o"></script>
+<script src="assets/js/export.js?v=20260717o"></script>
+<script src="assets/js/ui.js?v=20260717o"></script>
+<script src="assets/js/toolbar.js?v=20260717o"></script>
+<script src="assets/js/editable-values.js?v=20260717o"></script>
+<script src="assets/js/app.js?v=20260717o"></script>
 
 </body>
 </html>

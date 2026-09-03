@@ -90,10 +90,6 @@ const Background = (() => {
     const wrap = document.createElement('div');
     wrap.className = 'bb-bg-wrap';
 
-    const label = document.createElement('span');
-    label.className = 'bb-slider-label';
-    label.textContent = 'Fondo';
-
     const swatch = document.createElement('input');
     swatch.type = 'color';
     swatch.className = 'bb-bg-swatch';
@@ -111,7 +107,7 @@ const Background = (() => {
     imgBtn.textContent = 'IMG';
     imgBtn.addEventListener('click', () => _pickImage());
 
-    wrap.append(label, swatch, imgBtn);
+    wrap.append(swatch, imgBtn);
 
     // "x" para quitar la imagen, sólo si hay
     if (hasImage(fmt.id)) {

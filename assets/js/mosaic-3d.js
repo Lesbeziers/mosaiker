@@ -43,6 +43,8 @@ const Mosaic3D = (() => {
   // la imagen a la GPU en cada rebuild (el mayor coste de los sliders
   // de gap/esquinas). Se invalida en refreshTextures().
   const textureCache = {};
+  const shadowTexCache = {};   // texturas de sombra (rect redondeado negro difuminado)
+  const glowTexCache = {};     // texturas de glow (contorno de color difuminado)
 
   // Cache de THREE.CanvasTexture de badges de prefijo, indexado por nº.
   // El badge es una etiqueta circular con el nº del hueco que se superpone
@@ -58,6 +60,8 @@ const Mosaic3D = (() => {
   // Cada tile recibe una clave estable `${skeletonId}:${índiceDeRender}`.
   // El ajuste (dx, dy en UV + escala) vive en State.imageAdjust[clave].
   let _slotIndex    = 0;     // contador de tiles durante _build()
+  let _cellKeys     = [];    // claves de todas las celdas del build actual
+  let _cellFrame    = {};    // clave → frame de diseño (default de borde por celda)
   let _raycaster    = null;  // THREE.Raycaster (lazy)
   let _highlightKey = null;  // contenedor con foco amarillo (interacción) o null
   let _capturing    = false; // true durante el snapshot de VER TODAS: oculta
@@ -287,6 +291,8 @@ const Mosaic3D = (() => {
     }
 
     _slotIndex = 0; // reinicia el contador de claves de contenedor
+    _cellKeys = [];  // se rellena en _addMesh (para operaciones "a todas")
+    _cellFrame = {}; // clave → default de borde de diseño
 
     if (activeSkeleton.type === 'grid') {
       _buildGrid(activeSkeleton);
@@ -672,12 +678,208 @@ const Mosaic3D = (() => {
     return v || '#ffffff';
   }
 
+  // ── BORDE POR CELDA ───────────────────────────────────────
+  // Estado efectivo de cada celda: override propio (State.cellBorder*) o, si no,
+  // el valor de formato/diseño. slotFrame = default de diseño (qué celdas piden
+  // borde: en ZIG-ZAG las de opacidad ~1).
+  function _cellBorderOn(slotKey, slotFrame) {
+    const ov = (typeof State !== 'undefined' && State.cellBorder) ? State.cellBorder[slotKey] : undefined;
+    if (ov === true || ov === false) return ov;
+    // Sin override: compat con proyectos viejos (stacksBorder=false ocultaba todo).
+    if (typeof State !== 'undefined' && State.stacksBorder &&
+        State.stacksBorder[State.activeFormatId] === false) return false;
+    return !!slotFrame;
+  }
+  function _cellBorderColorFor(slotKey) {
+    const ov = (typeof State !== 'undefined' && State.cellBorderColor) ? State.cellBorderColor[slotKey] : undefined;
+    return ov || _stacksBorderColor();
+  }
+  function _cellBorderWidthFor(slotKey) {
+    const ov = (typeof State !== 'undefined' && State.cellBorderWidth) ? State.cellBorderWidth[slotKey] : undefined;
+    return (typeof ov === 'number' && ov >= 0) ? ov : _stacksBorderWidth();
+  }
+
+  // ── SOMBRA POR CELDA ──────────────────────────────────────
+  // Efectivo por celda: override propio o, si no, el valor general del formato.
+  // on/off no tiene default de diseño → default false. El general (reset total)
+  // escribe cellShadow de todas y borra los overrides de props.
+  const SH_OP_DEF = 0.45, SH_X_DEF = 0, SH_Y_DEF = 0, SH_BLUR_DEF = 0.35;
+  function _shadowOn(key) {
+    const ov = (typeof State !== 'undefined' && State.cellShadow) ? State.cellShadow[key] : undefined;
+    return (typeof ov === 'boolean') ? ov : false;
+  }
+  function _shProp(key, cellMap, fmtMap, def) {
+    const ov = (typeof State !== 'undefined' && State[cellMap]) ? State[cellMap][key] : undefined;
+    if (typeof ov === 'number') return ov;
+    const g = (typeof State !== 'undefined' && State[fmtMap]) ? State[fmtMap][State.activeFormatId] : undefined;
+    return (typeof g === 'number') ? g : def;
+  }
+  function _shadowOpacity(key) { return _shProp(key, 'cellShadowOpacity', 'shadowOpacity', SH_OP_DEF); }
+  function _shadowX(key)       { return _shProp(key, 'cellShadowX', 'shadowX', SH_X_DEF); }   // -0.5..0.5 (frac dim menor)
+  function _shadowY(key)       { return _shProp(key, 'cellShadowY', 'shadowY', SH_Y_DEF); }
+  function _shadowBlur(key)    { return _shProp(key, 'cellShadowBlur', 'shadowBlur', SH_BLUR_DEF); } // 0..1
+  // API pública para el control contextual (Fase 2).
+  function getCellShadow(key)        { return _shadowOn(key); }
+  function getCellShadowOpacity(key) { return _shadowOpacity(key); }
+  function getCellShadowX(key)       { return _shadowX(key); }
+  function getCellShadowY(key)       { return _shadowY(key); }
+  function getCellShadowBlur(key)    { return _shadowBlur(key); }
+
+  function _roundRectPath(ctx, x, y, w, h, r) {
+    r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x,     y + h, r);
+    ctx.arcTo(x,     y + h, x,     y,     r);
+    ctx.arcTo(x,     y,     x + w, y,     r);
+    ctx.closePath();
+  }
+
+  // Textura de sombra: rect redondeado negro difuminado con margen para el blur.
+  // userData.meshW/H = tamaño (mundo) del plano que la muestra.
+  function _getShadowTexture(w, h, r, blurFrac) {
+    const K = 220;   // px de canvas por unidad de mundo
+    const blurPx = Math.max(0, blurFrac) * 0.15 * Math.min(w, h) * K;
+    const cacheKey = `${Math.round(w*1000)}_${Math.round(h*1000)}_${Math.round(r*1000)}_b${Math.round(blurFrac*100)}`;
+    if (shadowTexCache[cacheKey]) return shadowTexCache[cacheKey];
+    const margin = Math.ceil(blurPx * 1.8 + 2);
+    const rw = Math.round(w * K), rh = Math.round(h * K);
+    const cw = rw + 2 * margin, ch = rh + 2 * margin;
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    const cx = c.getContext('2d');
+    cx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
+    cx.fillStyle = '#000';
+    _roundRectPath(cx, margin, margin, rw, rh, r * K);
+    cx.fill();
+    cx.filter = 'none';
+    const t = new THREE.Texture(c);
+    t.minFilter = THREE.LinearMipMapLinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = true;
+    t.needsUpdate = true;
+    t.userData = { meshW: cw / K, meshH: ch / K };
+    shadowTexCache[cacheKey] = t;
+    return t;
+  }
+
+  // Añade la sombra de una celda (detrás, desplazada X/Y en el plano, difuminada).
+  function _addCellShadow(x, centerY, w, h, r, key) {
+    if (!_shadowOn(key)) return;
+    const op = _shadowOpacity(key);
+    if (op <= 0) return;
+    const minD = Math.min(w, h);
+    const offX = _shadowX(key) * minD;
+    const offY = _shadowY(key) * minD;
+    const tex  = _getShadowTexture(w, h, r, _shadowBlur(key));
+    const geo  = new THREE.PlaneGeometry(tex.userData.meshW, tex.userData.meshH);
+    const mat  = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: op, depthWrite: false });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x + w / 2 + offX, centerY + offY, -0.02);
+    mesh.renderOrder = 0;
+    pivot.add(mesh);
+  }
+
+  // ── GLOW POR CELDA ────────────────────────────────────────
+  // Halo de color (neón) inner+outer: contorno de color difuminado dibujado
+  // ENCIMA de la celda (centro transparente) con blend aditivo → ilumina el borde
+  // hacia dentro y hacia fuera. Mismo modelo que la sombra (override o general).
+  const GLOW_COLOR_DEF = '#00c8ff', GLOW_INT_DEF = 0.85, GLOW_BLUR_DEF = 0.4;
+  function _glowOn(key) {
+    const ov = (typeof State !== 'undefined' && State.cellGlow) ? State.cellGlow[key] : undefined;
+    return (typeof ov === 'boolean') ? ov : false;
+  }
+  function _glowColor(key) {
+    const ov = (typeof State !== 'undefined' && State.cellGlowColor) ? State.cellGlowColor[key] : undefined;
+    if (typeof ov === 'string' && ov) return ov;
+    const g = (typeof State !== 'undefined' && State.glowColor) ? State.glowColor[State.activeFormatId] : undefined;
+    return (typeof g === 'string' && g) ? g : GLOW_COLOR_DEF;
+  }
+  function _glowIntensity(key) { return _shProp(key, 'cellGlowIntensity', 'glowIntensity', GLOW_INT_DEF); }
+  function _glowBlur(key)      { return _shProp(key, 'cellGlowBlur', 'glowBlur', GLOW_BLUR_DEF); }
+  function getCellGlow(key)          { return _glowOn(key); }
+  function getCellGlowColor(key)     { return _glowColor(key); }
+  function getCellGlowIntensity(key) { return _glowIntensity(key); }
+  function getCellGlowBlur(key)      { return _glowBlur(key); }
+
+  // Textura de glow: contorno (stroke) de color difuminado que cae a ambos lados
+  // del borde. userData.meshW/H = tamaño (mundo) del plano.
+  function _getGlowTexture(w, h, r, color, blurFrac) {
+    const K = 220;
+    const blurPx = Math.max(0, blurFrac) * 0.14 * Math.min(w, h) * K;
+    const base   = Math.max(2, Math.min(w, h) * K * 0.02);   // grosor base del contorno
+    const cacheKey = `${Math.round(w*1000)}_${Math.round(h*1000)}_${Math.round(r*1000)}_${color}_b${Math.round(blurFrac*100)}`;
+    if (glowTexCache[cacheKey]) return glowTexCache[cacheKey];
+    const margin = Math.ceil(blurPx * 1.8 + base + 2);
+    const rw = Math.round(w * K), rh = Math.round(h * K);
+    const cw = rw + 2 * margin, ch = rh + 2 * margin;
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    const cx = c.getContext('2d');
+    cx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
+    cx.strokeStyle = color; cx.lineWidth = base; cx.lineJoin = 'round';
+    _roundRectPath(cx, margin, margin, rw, rh, r * K);
+    cx.stroke();
+    cx.filter = 'none';
+    const t = new THREE.Texture(c);
+    t.minFilter = THREE.LinearMipMapLinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = true;
+    t.needsUpdate = true;
+    t.userData = { meshW: cw / K, meshH: ch / K };
+    glowTexCache[cacheKey] = t;
+    return t;
+  }
+
+  // Añade el glow de una celda (encima, aditivo, centro transparente).
+  function _addCellGlow(x, centerY, w, h, r, key) {
+    if (!_glowOn(key)) return;
+    const inten = _glowIntensity(key);
+    if (inten <= 0) return;
+    const tex  = _getGlowTexture(w, h, r, _glowColor(key), _glowBlur(key));
+    const geo  = new THREE.PlaneGeometry(tex.userData.meshW, tex.userData.meshH);
+    const mat  = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: inten, depthWrite: false, blending: THREE.AdditiveBlending });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x + w / 2, centerY, 0.004);   // encima de la celda
+    mesh.renderOrder = 1;
+    pivot.add(mesh);
+  }
+
+  // Escuadras de selección: 4 marcas en L en las esquinas del contenedor,
+  // dibujadas ENCIMA (sin relleno) → marcan la selección sin tapar el borde ni
+  // transparentarse sobre la celda.
+  function _addSelectionCorners(x, centerY, w, h) {
+    const t  = _borderWorld(2.5);                 // grosor de la escuadra
+    const L  = Math.min(w, h) * 0.20;             // largo del brazo (proporcional)
+    const cx = x + w / 2;
+    const hw = w / 2, hh = h / 2;
+    const mat = new THREE.MeshBasicMaterial({ color: 0xf0a500, side: THREE.FrontSide, transparent: true, opacity: 1 });
+    [[-1, 1], [1, 1], [1, -1], [-1, -1]].forEach(([sx, sy]) => {
+      // Brazo horizontal (desde la esquina hacia dentro).
+      const hMesh = new THREE.Mesh(new THREE.PlaneGeometry(L, t), mat);
+      hMesh.position.set(cx + sx * hw - sx * L / 2, centerY + sy * hh - sy * t / 2, 0.003);
+      hMesh.renderOrder = 2;
+      pivot.add(hMesh);
+      // Brazo vertical.
+      const vMesh = new THREE.Mesh(new THREE.PlaneGeometry(t, L), mat);
+      vMesh.position.set(cx + sx * hw - sx * t / 2, centerY + sy * hh - sy * L / 2, 0.003);
+      vMesh.renderOrder = 2;
+      pivot.add(vMesh);
+    });
+  }
+
   function _addMesh(slot, x, centerY, w, h) {
     const r = (params.radius / 1000) * CELL_H;
 
     // Clave estable del contenedor (orden de render dentro del esqueleto).
     const slotKey = (activeSkeleton ? activeSkeleton.id : '?') + ':' + _slotIndex;
     _slotIndex++;
+    _cellKeys.push(slotKey);       // registro para operaciones "a todas"
+    _cellFrame[slotKey] = !!slot.frame;   // default de borde de diseño
+
+    // Sombra de la celda (detrás de todo, desplazada X/Y en el plano).
+    _addCellShadow(x, centerY, w, h, r, slotKey);
+    // Glow de la celda (encima, aditivo). Se pinta al final por z/renderOrder.
+    _addCellGlow(x, centerY, w, h, r, slotKey);
 
     // Foco amarillo del contenedor: rectángulo algo mayor por detrás → borde.
     // Si hay una "pista de drop" activa (arrastrando un archivo), tiene
@@ -686,7 +888,12 @@ const Mosaic3D = (() => {
     const isDropHint = !_capturing && _dropHintKey && slotKey === _dropHintKey;
     const isFocus    = !_capturing && !_dropHintKey && slotKey === _highlightKey;
     const isSelected = !_capturing && _selectedKeys.has(slotKey);
-    if (isDropHint || isFocus || isSelected) {
+    if (isSelected) {
+      // Selección → escuadras en las esquinas (encima, sin relleno): no tapan el
+      // borde ni se transparentan → se ve bien el borde/color/grosor y la opacidad.
+      _addSelectionCorners(x, centerY, w, h);
+    } else if (isDropHint || isFocus) {
+      // Foco de interacción / pista de drop → placa amarilla detrás (transitorio).
       const hb   = _borderWorld(3);
       const hGeo = _makeRoundedRect(w + 2 * hb, h + 2 * hb, r + hb, null);
       const hMat = new THREE.MeshBasicMaterial({ color: 0xf0a500, side: THREE.FrontSide, transparent: true, opacity: 1 });
@@ -697,14 +904,14 @@ const Mosaic3D = (() => {
       pivot.add(hMesh);
     }
 
-    // Marco blanco (3 pt) detrás de los holders marcados frame — sólo
-    // las celdas a 100% de los esqueletos que lo piden (p.ej. stacks).
-    // Se puede ocultar por formato (switch "Borde blanco" de la bottom-bar).
-    if (slot.frame && _stacksBorderVisible()) {
-      const b     = _borderWorld(_stacksBorderWidth());
+    // Marco de la celda. El estado ON/OFF, color y grosor son POR CELDA
+    // (override en State.cellBorder*), con fallback al valor de formato/diseño.
+    // slot.frame = default de diseño (qué celdas piden borde: p.ej. ZIG-ZAG a ~1).
+    if (_cellBorderOn(slotKey, slot.frame)) {
+      const b     = _borderWorld(_cellBorderWidthFor(slotKey));
       const wGeo  = _makeRoundedFrame(w + 2 * b, h + 2 * b, w, h, r + b, r);
       const wMat  = new THREE.MeshBasicMaterial({
-        color:       new THREE.Color(_stacksBorderColor()),
+        color:       new THREE.Color(_cellBorderColorFor(slotKey)),
         side:        THREE.FrontSide,
         transparent: true,
         opacity:     1,
@@ -812,6 +1019,10 @@ const Mosaic3D = (() => {
     if (!mounted) return;
     Object.values(textureCache).forEach(tex => tex.dispose());
     Object.keys(textureCache).forEach(k => delete textureCache[k]);
+    Object.values(shadowTexCache).forEach(tex => tex.dispose());
+    Object.keys(shadowTexCache).forEach(k => delete shadowTexCache[k]);
+    Object.values(glowTexCache).forEach(tex => tex.dispose());
+    Object.keys(glowTexCache).forEach(k => delete glowTexCache[k]);
     if (selloTexture) { selloTexture.dispose(); selloTexture = null; }
     if (activeSkeleton) {
       _build();
@@ -1298,9 +1509,13 @@ const Mosaic3D = (() => {
   }
 
   // ── SELECCIÓN DE CELDAS (shift+clic) ─────────────────────────────────
-  // Avisa al control contextual de opacidad cuando cambia la selección.
+  // Avisa a los controles contextuales cuando cambia la selección.
   function _notifySelection() {
     if (typeof CellOpacity !== 'undefined' && CellOpacity.update) CellOpacity.update();
+    if (typeof StacksBorder !== 'undefined' && StacksBorder.update) StacksBorder.update();
+    if (typeof Shadow !== 'undefined' && Shadow.update) Shadow.update();
+    if (typeof Glow !== 'undefined' && Glow.update) Glow.update();
+    if (typeof Toolbar !== 'undefined' && Toolbar.update) Toolbar.update();
   }
   function toggleSelection(key) {
     if (!key) return;
@@ -1337,6 +1552,13 @@ const Mosaic3D = (() => {
     return op;
   }
 
+  // ── BORDE POR CELDA (API pública para el control contextual) ──
+  function getAllCellKeys() { return [..._cellKeys]; }
+  // Estado efectivo de borde de una celda (override o diseño).
+  function getCellBorder(key)      { return _cellBorderOn(key, _cellFrame[key]); }
+  function getCellBorderColor(key) { return _cellBorderColorFor(key); }
+  function getCellBorderWidth(key) { return _cellBorderWidthFor(key); }
+
   // Crea un grupo con las celdas dadas y le vincula la imagen `file`.
   // Una celda pertenece a un grupo como máximo (se retira de grupos previos).
   function createGroup(keys, file) {
@@ -1372,5 +1594,8 @@ const Mosaic3D = (() => {
     pickKeyAt, panByScreen, scaleByFactor, setHighlight, beginCapture, endCapture,
     setDropHint, clearDropHint, getContainerScreen, getIndexScreens, applyFormat,
     toggleSelection, setSelection, clearSelection, getSelection, getCellOpacity, createGroup, getGroupIdOf, removeKeyFromGroup,
+    getAllCellKeys, getCellBorder, getCellBorderColor, getCellBorderWidth,
+    getCellShadow, getCellShadowOpacity, getCellShadowX, getCellShadowY, getCellShadowBlur,
+    getCellGlow, getCellGlowColor, getCellGlowIntensity, getCellGlowBlur,
   };
 })();

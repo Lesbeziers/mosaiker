@@ -10,10 +10,55 @@
   border-top: 1px solid var(--col-border);
   display: flex;
   align-items: center;
-  justify-content: space-between;  /* bloques + separadores repartidos proporcionalmente */
-  gap: 8px;
-  padding: 0 14px;
-  overflow: hidden;               /* si no cabe (monitor muy pequeño), recorta por la derecha */
+  justify-content: center;   /* grupo de botones centrado en el viewport */
+  padding: 0 12px;
+  position: relative;   /* ancla de los popovers */
+  overflow: visible;    /* el popover sale por arriba de la barra */
+  transition: background 0.15s ease, border-top-color 0.15s ease;
+}
+
+/* Modo "editando selección": tinte cálido sutil + línea amarilla arriba, para
+   saber de un vistazo que estás sobre carátulas particulares (no el formato). */
+#bottombar.sel-mode {
+  background: #1e1a0f;
+  border-top-color: var(--col-yellow);
+}
+
+/* ── TOOLBAR DE BOTONES ────────────────────────────────────── */
+#bb-buttons { display: flex; align-items: center; gap: 8px; }
+
+.bb-btn {
+  font-family: var(--font);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--col-yellow);
+  background: var(--col-surface); border: 1px solid var(--col-border);
+  border-radius: 2px; height: 26px; padding: 0 12px; cursor: pointer; white-space: nowrap;
+}
+.bb-btn:hover { border-color: var(--col-yellow); }
+.bb-btn.open  { border-color: var(--col-yellow); background: #1e1e1e; }
+.bb-btn.disabled { opacity: 0.3; pointer-events: none; }
+
+/* ── POPOVER (anclado sobre la barra, sin tapar el lienzo) ──── */
+.bb-pop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  background: #161616;
+  border: 1px solid var(--col-border);
+  border-radius: 4px;
+  padding: 10px 14px;
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  white-space: nowrap;
+}
+.bb-pop.open { display: flex; }
+.bb-pop-title {
+  font-family: var(--font);
+  font-size: 10px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--col-yellow); margin-right: 2px;
 }
 
 /* Bloque de la bottom-bar (FONDO, OPACIDAD, DESENFOQUE, BORDE, ZONA) */
@@ -102,8 +147,33 @@
 .bb-slider-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;   /* compacto: label/slider/número juntos como un bloque */
 }
+
+/* Separador vertical entre conceptos del popover (Sombra, etc.) */
+.bb-vsep {
+  width: 1px;
+  height: 24px;
+  background: var(--col-border);
+  flex-shrink: 0;
+}
+
+/* Cifras de sliders editables a mano (EditableValues) */
+.bb-slider-val, .transform-value { cursor: text; }
+.bb-slider-val:hover, .transform-value:hover { text-decoration: underline; }
+.bb-slider-val.editing, .transform-value.editing {
+  outline: 1px solid var(--col-yellow);
+  border-radius: 2px;
+  padding: 0 2px;
+  text-decoration: none;
+  color: var(--col-yellow);
+  cursor: text;
+}
+
+/* Campo numérico (grosor de borde): sin flechas de incremento */
+.bb-border-width::-webkit-outer-spin-button,
+.bb-border-width::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bb-border-width { -moz-appearance: textfield; appearance: textfield; }
 
 .bb-slider-label {
   font-family: var(--font);
@@ -186,8 +256,8 @@ body.view-all #bottombar {
 }
 
 .switch .track {
-  width: 36px;
-  height: 18px;
+  width: 30px;
+  height: 16px;
   border-radius: 999px;
   background: #4a4a4a;
   position: relative;
@@ -199,8 +269,8 @@ body.view-all #bottombar {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #fff;
   transition: left 0.18s ease;
@@ -211,7 +281,7 @@ body.view-all #bottombar {
 }
 
 .switch input:checked + .track .knob {
-  left: 20px;
+  left: 16px;
 }
 
 .switch:hover .track {
