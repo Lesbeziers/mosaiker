@@ -43,6 +43,7 @@ const Mosaic3D = (() => {
   // la imagen a la GPU en cada rebuild (el mayor coste de los sliders
   // de gap/esquinas). Se invalida en refreshTextures().
   const textureCache = {};
+  const shadowTexCache = {};   // texturas de sombra (rect redondeado negro difuminado)
 
   // Cache de THREE.CanvasTexture de badges de prefijo, indexado por nº.
   // El badge es una etiqueta circular con el nº del hueco que se superpone
@@ -697,6 +698,87 @@ const Mosaic3D = (() => {
     return (typeof ov === 'number' && ov >= 0) ? ov : _stacksBorderWidth();
   }
 
+  // ── SOMBRA POR CELDA ──────────────────────────────────────
+  // Efectivo por celda: override propio o, si no, el valor general del formato.
+  // on/off no tiene default de diseño → default false. El general (reset total)
+  // escribe cellShadow de todas y borra los overrides de props.
+  const SH_OP_DEF = 0.45, SH_X_DEF = 0, SH_Y_DEF = 0, SH_BLUR_DEF = 0.35;
+  function _shadowOn(key) {
+    const ov = (typeof State !== 'undefined' && State.cellShadow) ? State.cellShadow[key] : undefined;
+    return (typeof ov === 'boolean') ? ov : false;
+  }
+  function _shProp(key, cellMap, fmtMap, def) {
+    const ov = (typeof State !== 'undefined' && State[cellMap]) ? State[cellMap][key] : undefined;
+    if (typeof ov === 'number') return ov;
+    const g = (typeof State !== 'undefined' && State[fmtMap]) ? State[fmtMap][State.activeFormatId] : undefined;
+    return (typeof g === 'number') ? g : def;
+  }
+  function _shadowOpacity(key) { return _shProp(key, 'cellShadowOpacity', 'shadowOpacity', SH_OP_DEF); }
+  function _shadowX(key)       { return _shProp(key, 'cellShadowX', 'shadowX', SH_X_DEF); }   // -0.5..0.5 (frac dim menor)
+  function _shadowY(key)       { return _shProp(key, 'cellShadowY', 'shadowY', SH_Y_DEF); }
+  function _shadowBlur(key)    { return _shProp(key, 'cellShadowBlur', 'shadowBlur', SH_BLUR_DEF); } // 0..1
+  // API pública para el control contextual (Fase 2).
+  function getCellShadow(key)        { return _shadowOn(key); }
+  function getCellShadowOpacity(key) { return _shadowOpacity(key); }
+  function getCellShadowX(key)       { return _shadowX(key); }
+  function getCellShadowY(key)       { return _shadowY(key); }
+  function getCellShadowBlur(key)    { return _shadowBlur(key); }
+
+  function _roundRectPath(ctx, x, y, w, h, r) {
+    r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x,     y + h, r);
+    ctx.arcTo(x,     y + h, x,     y,     r);
+    ctx.arcTo(x,     y,     x + w, y,     r);
+    ctx.closePath();
+  }
+
+  // Textura de sombra: rect redondeado negro difuminado con margen para el blur.
+  // userData.meshW/H = tamaño (mundo) del plano que la muestra.
+  function _getShadowTexture(w, h, r, blurFrac) {
+    const K = 220;   // px de canvas por unidad de mundo
+    const blurPx = Math.max(0, blurFrac) * 0.15 * Math.min(w, h) * K;
+    const cacheKey = `${Math.round(w*1000)}_${Math.round(h*1000)}_${Math.round(r*1000)}_b${Math.round(blurFrac*100)}`;
+    if (shadowTexCache[cacheKey]) return shadowTexCache[cacheKey];
+    const margin = Math.ceil(blurPx * 1.8 + 2);
+    const rw = Math.round(w * K), rh = Math.round(h * K);
+    const cw = rw + 2 * margin, ch = rh + 2 * margin;
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    const cx = c.getContext('2d');
+    cx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
+    cx.fillStyle = '#000';
+    _roundRectPath(cx, margin, margin, rw, rh, r * K);
+    cx.fill();
+    cx.filter = 'none';
+    const t = new THREE.Texture(c);
+    t.minFilter = THREE.LinearMipMapLinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = true;
+    t.needsUpdate = true;
+    t.userData = { meshW: cw / K, meshH: ch / K };
+    shadowTexCache[cacheKey] = t;
+    return t;
+  }
+
+  // Añade la sombra de una celda (detrás, desplazada X/Y en el plano, difuminada).
+  function _addCellShadow(x, centerY, w, h, r, key) {
+    if (!_shadowOn(key)) return;
+    const op = _shadowOpacity(key);
+    if (op <= 0) return;
+    const minD = Math.min(w, h);
+    const offX = _shadowX(key) * minD;
+    const offY = _shadowY(key) * minD;
+    const tex  = _getShadowTexture(w, h, r, _shadowBlur(key));
+    const geo  = new THREE.PlaneGeometry(tex.userData.meshW, tex.userData.meshH);
+    const mat  = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: op, depthWrite: false });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x + w / 2 + offX, centerY + offY, -0.02);
+    mesh.renderOrder = 0;
+    pivot.add(mesh);
+  }
+
   // Escuadras de selección: 4 marcas en L en las esquinas del contenedor,
   // dibujadas ENCIMA (sin relleno) → marcan la selección sin tapar el borde ni
   // transparentarse sobre la celda.
@@ -728,6 +810,9 @@ const Mosaic3D = (() => {
     _slotIndex++;
     _cellKeys.push(slotKey);       // registro para operaciones "a todas"
     _cellFrame[slotKey] = !!slot.frame;   // default de borde de diseño
+
+    // Sombra de la celda (detrás de todo, desplazada X/Y en el plano).
+    _addCellShadow(x, centerY, w, h, r, slotKey);
 
     // Foco amarillo del contenedor: rectángulo algo mayor por detrás → borde.
     // Si hay una "pista de drop" activa (arrastrando un archivo), tiene
@@ -867,6 +952,8 @@ const Mosaic3D = (() => {
     if (!mounted) return;
     Object.values(textureCache).forEach(tex => tex.dispose());
     Object.keys(textureCache).forEach(k => delete textureCache[k]);
+    Object.values(shadowTexCache).forEach(tex => tex.dispose());
+    Object.keys(shadowTexCache).forEach(k => delete shadowTexCache[k]);
     if (selloTexture) { selloTexture.dispose(); selloTexture = null; }
     if (activeSkeleton) {
       _build();
@@ -1437,5 +1524,6 @@ const Mosaic3D = (() => {
     setDropHint, clearDropHint, getContainerScreen, getIndexScreens, applyFormat,
     toggleSelection, setSelection, clearSelection, getSelection, getCellOpacity, createGroup, getGroupIdOf, removeKeyFromGroup,
     getAllCellKeys, getCellBorder, getCellBorderColor, getCellBorderWidth,
+    getCellShadow, getCellShadowOpacity, getCellShadowX, getCellShadowY, getCellShadowBlur,
   };
 })();
