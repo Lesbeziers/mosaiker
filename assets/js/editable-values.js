@@ -58,8 +58,9 @@ const EditableValues = (() => {
       slider.dispatchEvent(new Event('change', { bubbles: true }));
     };
     const onKey = (ev) => {
-      if (ev.key === 'Enter') { ev.preventDefault(); el.blur(); }
-      else if (ev.key === 'Escape') { ev.preventDefault(); finish(false); el.blur(); }
+      // No dejamos que Enter/Esc lleguen al popover (cerrar) ni al deseleccionar.
+      if (ev.key === 'Enter') { ev.preventDefault(); ev.stopPropagation(); el.blur(); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); finish(false); el.blur(); }
     };
     const onBlur = () => finish(true);
     el.addEventListener('keydown', onKey);
