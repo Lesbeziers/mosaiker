@@ -44,6 +44,7 @@ const Mosaic3D = (() => {
   // de gap/esquinas). Se invalida en refreshTextures().
   const textureCache = {};
   const shadowTexCache = {};   // texturas de sombra (rect redondeado negro difuminado)
+  const glowTexCache = {};     // texturas de glow (contorno de color difuminado)
 
   // Cache de THREE.CanvasTexture de badges de prefijo, indexado por nº.
   // El badge es una etiqueta circular con el nº del hueco que se superpone
@@ -779,6 +780,70 @@ const Mosaic3D = (() => {
     pivot.add(mesh);
   }
 
+  // ── GLOW POR CELDA ────────────────────────────────────────
+  // Halo de color (neón) inner+outer: contorno de color difuminado dibujado
+  // ENCIMA de la celda (centro transparente) con blend aditivo → ilumina el borde
+  // hacia dentro y hacia fuera. Mismo modelo que la sombra (override o general).
+  const GLOW_COLOR_DEF = '#00c8ff', GLOW_INT_DEF = 0.85, GLOW_BLUR_DEF = 0.4;
+  function _glowOn(key) {
+    const ov = (typeof State !== 'undefined' && State.cellGlow) ? State.cellGlow[key] : undefined;
+    return (typeof ov === 'boolean') ? ov : false;
+  }
+  function _glowColor(key) {
+    const ov = (typeof State !== 'undefined' && State.cellGlowColor) ? State.cellGlowColor[key] : undefined;
+    if (typeof ov === 'string' && ov) return ov;
+    const g = (typeof State !== 'undefined' && State.glowColor) ? State.glowColor[State.activeFormatId] : undefined;
+    return (typeof g === 'string' && g) ? g : GLOW_COLOR_DEF;
+  }
+  function _glowIntensity(key) { return _shProp(key, 'cellGlowIntensity', 'glowIntensity', GLOW_INT_DEF); }
+  function _glowBlur(key)      { return _shProp(key, 'cellGlowBlur', 'glowBlur', GLOW_BLUR_DEF); }
+  function getCellGlow(key)          { return _glowOn(key); }
+  function getCellGlowColor(key)     { return _glowColor(key); }
+  function getCellGlowIntensity(key) { return _glowIntensity(key); }
+  function getCellGlowBlur(key)      { return _glowBlur(key); }
+
+  // Textura de glow: contorno (stroke) de color difuminado que cae a ambos lados
+  // del borde. userData.meshW/H = tamaño (mundo) del plano.
+  function _getGlowTexture(w, h, r, color, blurFrac) {
+    const K = 220;
+    const blurPx = Math.max(0, blurFrac) * 0.14 * Math.min(w, h) * K;
+    const base   = Math.max(2, Math.min(w, h) * K * 0.02);   // grosor base del contorno
+    const cacheKey = `${Math.round(w*1000)}_${Math.round(h*1000)}_${Math.round(r*1000)}_${color}_b${Math.round(blurFrac*100)}`;
+    if (glowTexCache[cacheKey]) return glowTexCache[cacheKey];
+    const margin = Math.ceil(blurPx * 1.8 + base + 2);
+    const rw = Math.round(w * K), rh = Math.round(h * K);
+    const cw = rw + 2 * margin, ch = rh + 2 * margin;
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    const cx = c.getContext('2d');
+    cx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
+    cx.strokeStyle = color; cx.lineWidth = base; cx.lineJoin = 'round';
+    _roundRectPath(cx, margin, margin, rw, rh, r * K);
+    cx.stroke();
+    cx.filter = 'none';
+    const t = new THREE.Texture(c);
+    t.minFilter = THREE.LinearMipMapLinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = true;
+    t.needsUpdate = true;
+    t.userData = { meshW: cw / K, meshH: ch / K };
+    glowTexCache[cacheKey] = t;
+    return t;
+  }
+
+  // Añade el glow de una celda (encima, aditivo, centro transparente).
+  function _addCellGlow(x, centerY, w, h, r, key) {
+    if (!_glowOn(key)) return;
+    const inten = _glowIntensity(key);
+    if (inten <= 0) return;
+    const tex  = _getGlowTexture(w, h, r, _glowColor(key), _glowBlur(key));
+    const geo  = new THREE.PlaneGeometry(tex.userData.meshW, tex.userData.meshH);
+    const mat  = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: inten, depthWrite: false, blending: THREE.AdditiveBlending });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x + w / 2, centerY, 0.004);   // encima de la celda
+    mesh.renderOrder = 1;
+    pivot.add(mesh);
+  }
+
   // Escuadras de selección: 4 marcas en L en las esquinas del contenedor,
   // dibujadas ENCIMA (sin relleno) → marcan la selección sin tapar el borde ni
   // transparentarse sobre la celda.
@@ -813,6 +878,8 @@ const Mosaic3D = (() => {
 
     // Sombra de la celda (detrás de todo, desplazada X/Y en el plano).
     _addCellShadow(x, centerY, w, h, r, slotKey);
+    // Glow de la celda (encima, aditivo). Se pinta al final por z/renderOrder.
+    _addCellGlow(x, centerY, w, h, r, slotKey);
 
     // Foco amarillo del contenedor: rectángulo algo mayor por detrás → borde.
     // Si hay una "pista de drop" activa (arrastrando un archivo), tiene
@@ -954,6 +1021,8 @@ const Mosaic3D = (() => {
     Object.keys(textureCache).forEach(k => delete textureCache[k]);
     Object.values(shadowTexCache).forEach(tex => tex.dispose());
     Object.keys(shadowTexCache).forEach(k => delete shadowTexCache[k]);
+    Object.values(glowTexCache).forEach(tex => tex.dispose());
+    Object.keys(glowTexCache).forEach(k => delete glowTexCache[k]);
     if (selloTexture) { selloTexture.dispose(); selloTexture = null; }
     if (activeSkeleton) {
       _build();
@@ -1526,5 +1595,6 @@ const Mosaic3D = (() => {
     toggleSelection, setSelection, clearSelection, getSelection, getCellOpacity, createGroup, getGroupIdOf, removeKeyFromGroup,
     getAllCellKeys, getCellBorder, getCellBorderColor, getCellBorderWidth,
     getCellShadow, getCellShadowOpacity, getCellShadowX, getCellShadowY, getCellShadowBlur,
+    getCellGlow, getCellGlowColor, getCellGlowIntensity, getCellGlowBlur,
   };
 })();
