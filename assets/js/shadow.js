@@ -85,13 +85,15 @@ const Shadow = (() => {
     const track = document.createElement('span'); track.className = 'track';
     const knob = document.createElement('span'); knob.className = 'knob'; track.appendChild(knob);
     sw.append(input, track);
-    container.appendChild(sw);
 
     // ── SLIDERS ──
-    container.appendChild(_slider('Transp.', Math.round(op * 100),   0, 100, v => _setProp(cellMode, sel, 'Opacity', 'shadowOpacity', v / 100)));
-    container.appendChild(_slider('X',       Math.round(x  * 100), -50,  50, v => _setProp(cellMode, sel, 'X',       'shadowX',       v / 100)));
-    container.appendChild(_slider('Y',       Math.round(y  * 100), -50,  50, v => _setProp(cellMode, sel, 'Y',       'shadowY',       v / 100)));
-    container.appendChild(_slider('Desenf.', Math.round(bl * 100),   0, 100, v => _setProp(cellMode, sel, 'Blur',    'shadowBlur',    v / 100)));
+    const parts = [
+      sw,
+      _slider('Transp.', Math.round(op * 100),   0, 100, v => _setProp(cellMode, sel, 'Opacity', 'shadowOpacity', v / 100)),
+      _slider('X',       Math.round(x  * 100), -50,  50, v => _setProp(cellMode, sel, 'X',       'shadowX',       v / 100)),
+      _slider('Y',       Math.round(y  * 100), -50,  50, v => _setProp(cellMode, sel, 'Y',       'shadowY',       v / 100)),
+      _slider('Desenf.', Math.round(bl * 100),   0, 100, v => _setProp(cellMode, sel, 'Blur',    'shadowBlur',    v / 100)),
+    ];
 
     // ── ↺ (solo carátula) ──
     if (cellMode) {
@@ -104,8 +106,14 @@ const Shadow = (() => {
         if (typeof Mosaic3D !== 'undefined') Mosaic3D.rebuild();
         update();
       });
-      container.appendChild(reset);
+      parts.push(reset);
     }
+
+    // Monta los conceptos con una rayita separadora entre cada uno.
+    parts.forEach((el, i) => {
+      if (i > 0) { const s = document.createElement('div'); s.className = 'bb-vsep'; container.appendChild(s); }
+      container.appendChild(el);
+    });
   }
 
   function _setProp(cellMode, sel, cellSuffix, fmtMap, val) {

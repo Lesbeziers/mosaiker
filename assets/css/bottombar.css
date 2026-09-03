@@ -147,7 +147,15 @@
 .bb-slider-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;   /* compacto: label/slider/número juntos como un bloque */
+}
+
+/* Separador vertical entre conceptos del popover (Sombra, etc.) */
+.bb-vsep {
+  width: 1px;
+  height: 24px;
+  background: var(--col-border);
+  flex-shrink: 0;
 }
 
 .bb-slider-label {
