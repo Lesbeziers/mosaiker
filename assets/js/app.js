@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   Skeletons.init();
   ImageAdjust.init();
   Toolbar.init();   // toolbar de botones + popovers de la bottom-bar
+  EditableValues.init();   // cifras de sliders editables a mano
   // Sólo aplica un esqueleto si hay uno activo (p.ej. tras cargar proyecto).
   // De arranque activeSkeletonId es null → el botón queda en "Selecciona un mosaico".
   if (State.activeSkeletonId) Skeletons.setActive(State.activeSkeletonId);

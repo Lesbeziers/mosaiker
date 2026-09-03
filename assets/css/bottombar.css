@@ -158,6 +158,23 @@
   flex-shrink: 0;
 }
 
+/* Cifras de sliders editables a mano (EditableValues) */
+.bb-slider-val, .transform-value { cursor: text; }
+.bb-slider-val:hover, .transform-value:hover { text-decoration: underline; }
+.bb-slider-val.editing, .transform-value.editing {
+  outline: 1px solid var(--col-yellow);
+  border-radius: 2px;
+  padding: 0 2px;
+  text-decoration: none;
+  color: var(--col-yellow);
+  cursor: text;
+}
+
+/* Campo numérico (grosor de borde): sin flechas de incremento */
+.bb-border-width::-webkit-outer-spin-button,
+.bb-border-width::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bb-border-width { -moz-appearance: textfield; appearance: textfield; }
+
 .bb-slider-label {
   font-family: var(--font);
   font-size: 11px;
