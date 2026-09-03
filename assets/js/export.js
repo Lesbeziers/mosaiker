@@ -660,14 +660,16 @@ const Export = (() => {
       ? stateOffsets
       : (esq.defaultOffsets || new Array(numCols).fill(0));
 
+    // Centrado y banda con el layout BASE; el offset del usuario se suma al
+    // colocar cada columna (igual que mosaic-3d._buildStacks).
     const cells = [];
     let cursor = 0, maxX = 0, topMost = -Infinity, bottomMost = Infinity, laneX = null;
     esq.cols.forEach((col, ci) => {
       const drop = col.drop || 0;
-      let top = -drop * step + (offsets[ci] || 0);
+      let top = -drop * step;   // BASE (sin offset de usuario)
       col.cells.forEach(c => {
         const cy = top - CELL_H / 2;
-        cells.push({ x: cursor, cy, n: c.n, opacity: c.opacity ?? 1 });
+        cells.push({ x: cursor, cy, n: c.n, opacity: c.opacity ?? 1, ci });
         if (cursor + VERT_W > maxX) maxX = cursor + VERT_W;
         if (top > topMost) topMost = top;
         if (cy - CELL_H / 2 < bottomMost) bottomMost = cy - CELL_H / 2;
@@ -683,7 +685,7 @@ const Export = (() => {
     cells.forEach(c => {
       _addMesh(THREE, pivot,
         { n: c.n, ratio: 'V', opacity: c.opacity, frame: c.opacity >= 0.99 },
-        c.x + offsetX, c.cy + offsetY, VERT_W, CELL_H, p, getTexture);
+        c.x + offsetX, c.cy + offsetY + (offsets[c.ci] || 0), VERT_W, CELL_H, p, getTexture);
     });
 
     if (esq.band && laneX !== null) {

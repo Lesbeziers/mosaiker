@@ -532,15 +532,18 @@ const Mosaic3D = (() => {
       ? stateOffsets
       : (esq.defaultOffsets || new Array(numCols).fill(0));
 
+    // El centrado y la banda se calculan con el layout BASE (solo `drop`), sin el
+    // offset del usuario; el offset se suma DESPUÉS al colocar cada columna. Así
+    // mover una columna no recoloca el resto ni estira la banda del sello.
     const cells = [];
     let cursor = 0, maxX = 0, topMost = -Infinity, bottomMost = Infinity;
     let laneX = null;
     esq.cols.forEach((col, ci) => {
       const drop = col.drop || 0;
-      let top = -drop * step + (offsets[ci] || 0);
+      let top = -drop * step;   // BASE (sin offset de usuario)
       col.cells.forEach(c => {
         const cy = top - CELL_H / 2;
-        cells.push({ x: cursor, cy, n: c.n, opacity: c.opacity ?? 1 });
+        cells.push({ x: cursor, cy, n: c.n, opacity: c.opacity ?? 1, ci });
         if (cursor + VERT_W > maxX)     maxX = cursor + VERT_W;
         if (top > topMost)              topMost = top;
         if (cy - CELL_H / 2 < bottomMost) bottomMost = cy - CELL_H / 2;
@@ -555,11 +558,11 @@ const Mosaic3D = (() => {
     const offsetX = -width / 2;
     const offsetY = -(topMost + bottomMost) / 2;
 
-    // 2) Crea los meshes de carátulas centrados
+    // 2) Crea los meshes; el offset del usuario mueve SOLO su columna.
     cells.forEach(c => {
       _addMesh(
         { n: c.n, ratio: 'V', opacity: c.opacity, frame: c.opacity >= 0.99 },
-        c.x + offsetX, c.cy + offsetY, VERT_W, CELL_H
+        c.x + offsetX, c.cy + offsetY + (offsets[c.ci] || 0), VERT_W, CELL_H
       );
     });
 
