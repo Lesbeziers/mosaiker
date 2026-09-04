@@ -1101,7 +1101,17 @@ const Export = (() => {
       const img = new Image();
       img.onload = async () => {
         try {
-          const bitmap = await createImageBitmap(img, { imageOrientation: 'flipY' });
+          // El <img> ya aplica la orientación EXIF al renderizar. Lo volcamos a un
+          // canvas para capturar esos píxeles YA orientados, y de ahí sacamos el
+          // ImageBitmap con flipY (fiable desde canvas, sin la ambigüedad de EXIF
+          // que tiene createImageBitmap(<img>,…) a resolución completa). Esto evita
+          // que algunas imágenes (las que traen EXIF) se exporten volteadas.
+          const w = img.naturalWidth || img.width;
+          const h = img.naturalHeight || img.height;
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          const bitmap = await createImageBitmap(c, { imageOrientation: 'flipY' });
           URL.revokeObjectURL(url);
           resolve(bitmap);
         } catch (err) {
