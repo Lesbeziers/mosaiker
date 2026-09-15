@@ -469,10 +469,12 @@ const Skeletons = (() => {
         { n: 9,  r: 'H', x: 0.0000, y: 1.0720, w: 1.0469, h: 0.6679, opacity: 0.77, shadow: true },
         { n: 10, r: 'H', x: 1.1191, y: 1.0720, w: 1.0469, h: 0.6679, opacity: 0.77, shadow: true },
         { n: 11, r: 'H', x: 0.3972, y: 1.8119, w: 1.0469, h: 0.6679, opacity: 0.77, shadow: true },
-        { n: 12, r: 'H', x: 2.2362, y: 0.0000, w: 1.0469, h: 0.6679, opacity: 0.77, shadow: true },
+        { n: 12, r: 'H', x: 2.2380, y: 0.0000, w: 1.0108, h: 0.6679, opacity: 0.77, shadow: true },
         { n: 13, r: 'H', x: 2.2380, y: 1.8119, w: 1.0108, h: 0.6679, opacity: 0.77, shadow: true },
         { n: 14, r: 'H', x: 3.3207, y: 1.8119, w: 1.0108, h: 0.6679, opacity: 0.77, shadow: true },
         { n: 15, r: 'H', x: 4.4036, y: 1.0720, w: 1.0469, h: 0.6679, opacity: 0.77, shadow: true },
+        // 16: espejo del 14 en el hueco superior (junto al 12, idéntico a él).
+        { n: 16, r: 'H', x: 3.3207, y: 0.0000, w: 1.0108, h: 0.6679, opacity: 0.77, shadow: true },
       ],
     },
 
