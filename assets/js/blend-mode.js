@@ -65,11 +65,19 @@ const BlendMode = (() => {
     return get(State.activeFormatId);
   }
 
-  // Valor a mostrar en el selector según el ámbito (selección o mosaico).
+  // Valor a mostrar en el selector según el ámbito. Si las celdas del ámbito no
+  // tienen todas el mismo modo → '__mixed__' (para que elegir cualquier opción,
+  // incluida Normal, dispare el cambio y se aplique a TODAS).
+  function _uniformOr(keys) {
+    if (!keys.length) return get(State.activeFormatId);
+    const first = _effForKey(keys[0]);
+    return keys.every(k => _effForKey(k) === first) ? first : '__mixed__';
+  }
   function _currentValue() {
     const sel = _selection();
-    if (sel.length) return _effForKey(sel[0]);   // el de la 1ª seleccionada
-    return get(State.activeFormatId);
+    if (sel.length) return _uniformOr(sel);
+    const all = (typeof Mosaic3D !== 'undefined' && Mosaic3D.getAllCellKeys) ? Mosaic3D.getAllCellKeys() : [];
+    return _uniformOr(all);
   }
 
   // Aplica el modo al ámbito: selección → celdas; sin selección → default del
@@ -106,6 +114,15 @@ const BlendMode = (() => {
     const sel = document.createElement('select');
     sel.className = 'bb-blend-select';
     const cur = _currentValue();
+    // Estado mixto: opción informativa "(Mixto)" seleccionada, para que elegir
+    // cualquier modo (incluido Normal) dispare el cambio y afecte a todas.
+    if (cur === '__mixed__') {
+      const mix = document.createElement('option');
+      mix.value = '__mixed__';
+      mix.textContent = '— Mixto —';
+      mix.selected = true;
+      sel.appendChild(mix);
+    }
     MODES.forEach(m => {
       const opt = document.createElement('option');
       opt.value = m.id;
@@ -113,7 +130,10 @@ const BlendMode = (() => {
       if (m.id === cur) opt.selected = true;
       sel.appendChild(opt);
     });
-    sel.addEventListener('change', () => _applyMode(sel.value));
+    sel.addEventListener('change', () => {
+      if (sel.value === '__mixed__') return;   // no-op si vuelven a "Mixto"
+      _applyMode(sel.value);
+    });
 
     container.appendChild(sel);
   }
