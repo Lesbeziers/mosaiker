@@ -639,7 +639,11 @@ const Export = (() => {
       const left = offX + c.x * unit + gap / 2;
       const top  = topY - c.y * unit - gap / 2;
       _addMesh(THREE, pivot,
-        { n: c.n, ratio: c.r, opacity: 1 },
+        { n: c.n, ratio: c.r,
+          opacity:   (typeof c.opacity === 'number') ? c.opacity : 1,
+          frame:     !!c.border,                                     // marco ON por diseño
+          borderDef: c.border ? (esq.borderDefault || null) : null,  // color/grosor por diseño
+          shadowDef: c.shadow ? Object.assign({ on: true }, esq.shadowDefault || {}) : null },
         left, top - h / 2, w, h, p, getTexture);
     });
   }
@@ -757,9 +761,12 @@ const Export = (() => {
   }
 
   // ── SOMBRA POR CELDA (export) — espejo de mosaic-3d._addCellShadow ──
-  function _exShVal(cellMap, fmtMap, key, def) {
+  // designVal = default de diseño de la celda (o undefined). Orden efectivo:
+  // override por celda > diseño > default de formato > constante.
+  function _exShVal(cellMap, fmtMap, key, designVal, def) {
     const ov = (_exComp && _exComp[cellMap]) ? _exComp[cellMap][key] : undefined;
     if (typeof ov === 'number') return ov;
+    if (typeof designVal === 'number') return designVal;
     const g = (typeof State !== 'undefined' && State[fmtMap]) ? State[fmtMap][_exFormatId] : undefined;
     return (typeof g === 'number') ? g : def;
   }
@@ -793,14 +800,16 @@ const Export = (() => {
     t.needsUpdate = true;
     return { tex: t, meshW: cw / K, meshH: ch / K };
   }
-  function _exAddShadow(THREE, pivot, x, centerY, w, h, r, key) {
-    const on = (_exComp && _exComp.cellShadow && typeof _exComp.cellShadow[key] === 'boolean') ? _exComp.cellShadow[key] : false;
+  function _exAddShadow(THREE, pivot, x, centerY, w, h, r, key, designDef) {
+    const d = designDef || null;
+    const ov = (_exComp && _exComp.cellShadow && typeof _exComp.cellShadow[key] === 'boolean') ? _exComp.cellShadow[key] : undefined;
+    const on = (typeof ov === 'boolean') ? ov : !!(d && d.on);   // override > diseño > off
     if (!on) return;
-    const op = _exShVal('cellShadowOpacity', 'shadowOpacity', key, 0.45);
+    const op = _exShVal('cellShadowOpacity', 'shadowOpacity', key, d ? d.opacity : undefined, 0.45);
     if (op <= 0) return;
-    const nx = _exShVal('cellShadowX', 'shadowX', key, 0);
-    const ny = _exShVal('cellShadowY', 'shadowY', key, 0);
-    const bl = _exShVal('cellShadowBlur', 'shadowBlur', key, 0.35);
+    const nx = _exShVal('cellShadowX', 'shadowX', key, d ? d.x : undefined, 0);
+    const ny = _exShVal('cellShadowY', 'shadowY', key, d ? d.y : undefined, 0);
+    const bl = _exShVal('cellShadowBlur', 'shadowBlur', key, d ? d.blur : undefined, 0.35);
     const minD = Math.min(w, h);
     const { tex, meshW, meshH } = _exShadowTexture(THREE, w, h, r, bl);
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: op, depthWrite: false });
@@ -840,9 +849,9 @@ const Export = (() => {
   function _exAddGlow(THREE, pivot, x, centerY, w, h, r, key) {
     const on = (_exComp && _exComp.cellGlow && typeof _exComp.cellGlow[key] === 'boolean') ? _exComp.cellGlow[key] : false;
     if (!on) return;
-    const inten = _exShVal('cellGlowIntensity', 'glowIntensity', key, 0.85);
+    const inten = _exShVal('cellGlowIntensity', 'glowIntensity', key, undefined, 0.85);
     if (inten <= 0) return;
-    const bl = _exShVal('cellGlowBlur', 'glowBlur', key, 0.4);
+    const bl = _exShVal('cellGlowBlur', 'glowBlur', key, undefined, 0.4);
     const { tex, meshW, meshH } = _exGlowTexture(THREE, w, h, r, _exGlowColor(key), bl);
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: inten, depthWrite: false, blending: THREE.AdditiveBlending });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(meshW, meshH), mat);
@@ -855,9 +864,7 @@ const Export = (() => {
     _exSlotIndex++;
     const r   = ((p.radius ?? 12) / 1000) * CELL_H;
     // Sombra por celda (detrás). Debe coincidir con mosaic-3d._addCellShadow.
-    _exAddShadow(THREE, pivot, x, centerY, w, h, r, key);
-    // Glow por celda (encima, aditivo). Espejo de mosaic-3d._addCellGlow.
-    _exAddGlow(THREE, pivot, x, centerY, w, h, r, key);
+    _exAddShadow(THREE, pivot, x, centerY, w, h, r, key, slot.shadowDef);
     // Glow por celda (encima, aditivo). Espejo de mosaic-3d._addCellGlow.
     _exAddGlow(THREE, pivot, x, centerY, w, h, r, key);
     // Imagen efectiva: vinculada al ÍNDICE de imagen (formatId::n) o índice del
@@ -880,12 +887,14 @@ const Export = (() => {
     const ovOn = (_exComp && _exComp.cellBorder) ? _exComp.cellBorder[key] : undefined;
     const borderOn = (ovOn === true || ovOn === false) ? ovOn : (legacyOff ? false : !!slot.frame);
     if (borderOn) {
+      const bd  = slot.borderDef || null;   // default de diseño (p.ej. DESTACADOS: blanco 1px)
       const ovW = (_exComp && _exComp.cellBorderWidth) ? _exComp.cellBorderWidth[key] : undefined;
       const bw = (typeof ovW === 'number' && ovW >= 0) ? ovW
+        : (bd && typeof bd.width === 'number' && bd.width >= 0) ? bd.width
         : ((typeof State !== 'undefined' && State.stacksBorderWidth && typeof State.stacksBorderWidth[_exFormatId] === 'number')
             ? State.stacksBorderWidth[_exFormatId] : 3);
       const ovC = (_exComp && _exComp.cellBorderColor) ? _exComp.cellBorderColor[key] : undefined;
-      const bc = ovC || ((typeof State !== 'undefined' && State.stacksBorderColor && State.stacksBorderColor[_exFormatId]) || '#ffffff');
+      const bc = ovC || (bd && bd.color) || ((typeof State !== 'undefined' && State.stacksBorderColor && State.stacksBorderColor[_exFormatId]) || '#ffffff');
       const b    = _exBorderWorld(bw, p);
       const wGeo = _makeRoundedFrame(THREE, w + 2 * b, h + 2 * b, w, h, r + b, r);
       const wMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(bc), side: THREE.FrontSide, transparent: true, opacity: 1 });
