@@ -439,10 +439,11 @@ const Skeletons = (() => {
       name: 'DESTACADOS x3',
       type: 'free',
       grid: { w: 9, h: 5 },
-      // bakedGap: el constructor NO resta separación (se deformaría la proporción);
-      // cada celda se dibuja a su tamaño EXACTO y las separaciones (~0.12) ya van
-      // integradas en las coordenadas → verticales 9:16 (0.9×1.6) y horizontales
-      // 16:9 (1.6×0.9) clavados. Ladrillo apretado igual que el diseño.
+      // Calcado del grid del cliente. Proporción de PÓSTER 2:3 girado:
+      // verticales 2:3 (1.0×1.5) y horizontales 3:2 (1.5×1.0). Coordenadas
+      // medidas de su dibujo (bounding boxes normalizados, lado corto = 1).
+      // bakedGap: las separaciones ya van integradas en las coordenadas y el
+      // constructor NO resta gap → proporción exacta y huecos como el diseño.
       bakedGap: true,
       // Sombra por defecto de las celdas no destacadas (Drop Shadow del diseño:
       // negro, opacidad 35%, sin desplazamiento, tamaño ~76px → desenfoque a ojo).
@@ -450,24 +451,24 @@ const Skeletons = (() => {
       // Marco por defecto de las destacadas (blanco 1px).
       borderDefault: { color: '#ffffff', width: 1 },
       cells: [
-        // Destacadas (verticales 9:16, opacas + marco blanco 1px).
-        { n: 1, r: 'V', x: 3.56, y: 1.02, w: 0.9, h: 1.6, opacity: 1, border: true },
-        { n: 2, r: 'V', x: 4.58, y: 1.02, w: 0.9, h: 1.6, opacity: 1, border: true },
-        { n: 3, r: 'V', x: 5.60, y: 1.02, w: 0.9, h: 1.6, opacity: 1, border: true },
-        // Parejas verticales laterales (9:16, 77% + sombra).
-        { n: 4, r: 'V', x: 2.54, y: 0.00, w: 0.9, h: 1.6, opacity: 0.77, shadow: true },
-        { n: 5, r: 'V', x: 2.54, y: 2.74, w: 0.9, h: 1.6, opacity: 0.77, shadow: true },
-        { n: 6, r: 'V', x: 7.16, y: 0.00, w: 0.9, h: 1.6, opacity: 0.77, shadow: true },
-        { n: 7, r: 'V', x: 7.16, y: 2.74, w: 0.9, h: 1.6, opacity: 0.77, shadow: true },
-        // Horizontales (16:9, 77% + sombra).
-        { n: 8,  r: 'H', x: 0.36, y: 0.56, w: 1.6, h: 0.9, opacity: 0.77, shadow: true },
-        { n: 9,  r: 'H', x: 0.00, y: 1.72, w: 1.6, h: 0.9, opacity: 0.77, shadow: true },
-        { n: 10, r: 'H', x: 1.72, y: 1.72, w: 1.6, h: 0.9, opacity: 0.77, shadow: true },
-        { n: 11, r: 'H', x: 0.36, y: 2.74, w: 1.6, h: 0.9, opacity: 0.77, shadow: true },
-        { n: 12, r: 'H', x: 3.72, y: 0.00, w: 1.6, h: 0.9, opacity: 0.77, shadow: true },
-        { n: 13, r: 'H', x: 3.72, y: 2.74, w: 1.6, h: 0.9, opacity: 0.77, shadow: true },
-        { n: 14, r: 'H', x: 5.44, y: 2.74, w: 1.6, h: 0.9, opacity: 0.77, shadow: true },
-        { n: 15, r: 'H', x: 6.62, y: 1.72, w: 1.6, h: 0.9, opacity: 0.77, shadow: true },
+        // Destacadas (verticales 2:3, opacas + marco blanco 1px).
+        { n: 1, r: 'V', x: 3.250, y: 1.044, w: 1.0, h: 1.5, opacity: 1, border: true },
+        { n: 2, r: 'V', x: 4.285, y: 1.044, w: 1.0, h: 1.5, opacity: 1, border: true },
+        { n: 3, r: 'V', x: 5.320, y: 1.044, w: 1.0, h: 1.5, opacity: 1, border: true },
+        // Parejas verticales laterales (2:3, 77% + sombra).
+        { n: 4, r: 'V', x: 2.120, y: 0.000, w: 1.0, h: 1.5, opacity: 0.77, shadow: true },
+        { n: 5, r: 'V', x: 2.120, y: 2.630, w: 1.0, h: 1.5, opacity: 0.77, shadow: true },
+        { n: 6, r: 'V', x: 7.272, y: 0.000, w: 1.0, h: 1.5, opacity: 0.77, shadow: true },
+        { n: 7, r: 'V', x: 7.272, y: 2.630, w: 1.0, h: 1.5, opacity: 0.77, shadow: true },
+        // Horizontales (3:2, 77% + sombra).
+        { n: 8,  r: 'H', x: 0.489, y: 0.500, w: 1.5, h: 1.0, opacity: 0.77, shadow: true },
+        { n: 9,  r: 'H', x: 0.000, y: 1.609, w: 1.5, h: 1.0, opacity: 0.77, shadow: true },
+        { n: 10, r: 'H', x: 1.565, y: 1.609, w: 1.5, h: 1.0, opacity: 0.77, shadow: true },
+        { n: 11, r: 'H', x: 0.522, y: 2.696, w: 1.5, h: 1.0, opacity: 0.77, shadow: true },
+        { n: 12, r: 'H', x: 3.239, y: 0.000, w: 1.5, h: 1.0, opacity: 0.77, shadow: true },
+        { n: 13, r: 'H', x: 3.239, y: 2.696, w: 1.5, h: 1.0, opacity: 0.77, shadow: true },
+        { n: 14, r: 'H', x: 4.805, y: 2.696, w: 1.5, h: 1.0, opacity: 0.77, shadow: true },
+        { n: 15, r: 'H', x: 6.718, y: 1.609, w: 1.5, h: 1.0, opacity: 0.77, shadow: true },
       ],
     },
 
