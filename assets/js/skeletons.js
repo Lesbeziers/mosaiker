@@ -444,8 +444,10 @@ const Skeletons = (() => {
       // esquina sup-izq y normalizados /277 (alto de la vertical = 1.0):
       //   Verticales: 180×277 px  -> w 0.6498 × h 1.0
       //   Horizontales: 290×185 px -> w 1.0469 × h 0.6679  (13 y 14: 280 -> 1.0108)
-      //   Separación real ~19.96 px -> 0.0721 (ya integrada en las coordenadas).
-      // bakedGap: el constructor NO resta separación → proporciones y huecos EXACTOS.
+      //   Separación real ~19.96 px -> ~0.072 (ya integrada en las coordenadas).
+      // bakedGap: las coordenadas ya traen su separación; el slider "Separación"
+      // aplica solo la DIFERENCIA respecto al valor por defecto (8) como inset
+      // uniforme → en 8 queda el calco exacto y se puede apretar/soltar.
       bakedGap: true,
       // Sombra por defecto de las celdas no destacadas (Drop Shadow del diseño:
       // negro, opacidad 35%, sin desplazamiento, tamaño ~76px → desenfoque a ojo).

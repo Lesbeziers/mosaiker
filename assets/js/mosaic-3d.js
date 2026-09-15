@@ -499,21 +499,26 @@ const Mosaic3D = (() => {
   // rejilla y su ratio ('H'|'V'|'S'). El eje Y de la rejilla crece hacia abajo.
   // Cada pieza se mete medio gap por lado → separación uniforme entre todas.
   function _buildFree(esq) {
-    // bakedGap: las separaciones ya están integradas en las coordenadas → NO se
-    // resta gap (restarlo deformaría la proporción de las celdas, que son 9:16 /
-    // 16:9 exactas). Si no, comportamiento clásico (gap absoluto por celda).
+    // Inset uniforme por celda (medio por lado) = separación entre celdas.
+    // bakedGap: las coordenadas YA traen la separación del diseño; el slider
+    // aplica solo la DIFERENCIA respecto al valor por defecto (GAP_DEF) → en el
+    // valor por defecto queda el calco exacto y al mover el slider los huecos
+    // cambian igual en todas (sin deformar de más). Sin bakedGap: gap clásico.
     const baked = !!esq.bakedGap;
-    const gap  = baked ? 0 : params.gap * 0.01;
+    const GAP_DEF = 0.08;   // gap por defecto (slider = 8) → inset 0 en modo baked
+    let d = params.gap * 0.01;
+    if (baked) d = Math.max(-0.06, d - GAP_DEF);   // clamp para no cerrar del todo
+    const gap = d;
     const unit = CELL_H;
     let maxX = 0, maxY = 0;
     esq.cells.forEach(c => { maxX = Math.max(maxX, c.x + c.w); maxY = Math.max(maxY, c.y + c.h); });
     const totalW = maxX * unit, totalH = maxY * unit;
     const offX = -totalW / 2, topY = totalH / 2;
     esq.cells.forEach(c => {
-      const w = c.w * unit - gap;
-      const h = c.h * unit - gap;
-      const left = offX + c.x * unit + gap / 2;
-      const top  = topY - c.y * unit - gap / 2;
+      const w = Math.max(0.05 * unit, c.w * unit - gap * unit);
+      const h = Math.max(0.05 * unit, c.h * unit - gap * unit);
+      const left = offX + c.x * unit + gap * unit / 2;
+      const top  = topY - c.y * unit - gap * unit / 2;
       _addMesh({
         n: c.n, ratio: c.r,
         opacity:   (typeof c.opacity === 'number') ? c.opacity : 1,

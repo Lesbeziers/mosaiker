@@ -627,19 +627,23 @@ const Export = (() => {
   }
 
   function _buildFree(THREE, pivot, esq, p, getTexture) {
-    // bakedGap: separaciones integradas en las coordenadas → no se resta gap
-    // (espejo de mosaic-3d._buildFree, para no deformar 9:16 / 16:9).
-    const gap  = esq.bakedGap ? 0 : (p.gap ?? 8) * 0.01;
+    // Inset uniforme por celda (espejo de mosaic-3d._buildFree). bakedGap: las
+    // coordenadas ya traen la separación del diseño; el slider aplica solo la
+    // DIFERENCIA respecto al valor por defecto (8) → separaciones uniformes.
+    const baked = !!esq.bakedGap;
+    const GAP_DEF = 0.08;
+    let gap = (p.gap ?? 8) * 0.01;
+    if (baked) gap = Math.max(-0.06, gap - GAP_DEF);
     const unit = CELL_H;
     let maxX = 0, maxY = 0;
     esq.cells.forEach(c => { maxX = Math.max(maxX, c.x + c.w); maxY = Math.max(maxY, c.y + c.h); });
     const totalW = maxX * unit, totalH = maxY * unit;
     const offX = -totalW / 2, topY = totalH / 2;
     esq.cells.forEach(c => {
-      const w = c.w * unit - gap;
-      const h = c.h * unit - gap;
-      const left = offX + c.x * unit + gap / 2;
-      const top  = topY - c.y * unit - gap / 2;
+      const w = Math.max(0.05 * unit, c.w * unit - gap * unit);
+      const h = Math.max(0.05 * unit, c.h * unit - gap * unit);
+      const left = offX + c.x * unit + gap * unit / 2;
+      const top  = topY - c.y * unit - gap * unit / 2;
       _addMesh(THREE, pivot,
         { n: c.n, ratio: c.r,
           opacity:   (typeof c.opacity === 'number') ? c.opacity : 1,
