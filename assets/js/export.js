@@ -26,6 +26,8 @@ const Export = (() => {
   let _exFormatId   = '?';
   let _exFormatH    = 1;       // alto en px del formato (para marcos a 3px)
   let _exSelloBitmap = null;   // bitmap del sello (mosaicos 'stacks')
+  let _exFondoTex   = null;    // textura del fondo (para el modo de capa por celda)
+  let _exFondoRes   = null;    // THREE.Vector2 (W,H) del formato
 
   function init() {
     document.getElementById('btn-exportar')?.addEventListener('click', _showModal);
@@ -383,6 +385,29 @@ const Export = (() => {
     _exSlotIndex = 0;
     _exSkeletonId = esq ? esq.id : '?';
     _exFormatH = H;
+
+    // Fondo como textura para el MODO DE CAPA por celda: se prepara ANTES de
+    // construir la escena porque las celdas con modo lo muestrean. Se reutiliza
+    // el mismo canvas para componer el fondo 2D después. En PNG transparente no
+    // hay fondo → las celdas con modo caen a normal.
+    _exFondoTex = null;
+    _exFondoRes = new THREE.Vector2(W, H);
+    let fondoCanvas = null;
+    if (!transparent) {
+      fondoCanvas = document.createElement('canvas');
+      fondoCanvas.width = W; fondoCanvas.height = H;
+      const fx = fondoCanvas.getContext('2d');
+      fx.fillStyle = (typeof Background !== 'undefined') ? Background.get(format.id) : '#0e0e0e';
+      fx.fillRect(0, 0, W, H);
+      const bgImgOn = (typeof Background === 'undefined') || Background.isVisible(format.id);
+      if (bgImgOn && typeof Background !== 'undefined' && Background.hasImage && Background.hasImage(format.id)) {
+        const bgUrl = Background.getImageUrl(format.id);
+        if (bgUrl) { const bgImg = await _loadImage(bgUrl); if (bgImg) _drawCover(fx, bgImg, W, H); }
+      }
+      _exFondoTex = new THREE.CanvasTexture(fondoCanvas);
+      if (THREE.SRGBColorSpace) _exFondoTex.colorSpace = THREE.SRGBColorSpace;
+    }
+
     if (esq) {
       if (esq.type === 'grid')    _buildGrid   (THREE, pivot, esq, p, getTexture);
       if (esq.type === 'columns') _buildColumns(THREE, pivot, esq, p, getTexture);
@@ -403,20 +428,11 @@ const Export = (() => {
     out.height = H;
     const ctx  = out.getContext('2d');
 
-    // Fondo. En modo transparente (PNG) se omite por completo. El COLOR siempre
-    // se aplica; la IMAGEN de fondo se omite si su capa FONDO está oculta (👁).
-    if (!transparent) {
-      ctx.fillStyle = (typeof Background !== 'undefined') ? Background.get(format.id) : '#0e0e0e';
-      ctx.fillRect(0, 0, W, H);
-
-      const bgImgOn = (typeof Background === 'undefined') || Background.isVisible(format.id);
-      if (bgImgOn && typeof Background !== 'undefined' && Background.hasImage && Background.hasImage(format.id)) {
-        const bgUrl = Background.getImageUrl(format.id);
-        if (bgUrl) {
-          const bgImg = await _loadImage(bgUrl);
-          if (bgImg) _drawCover(ctx, bgImg, W, H);
-        }
-      }
+    // Fondo. En modo transparente (PNG) se omite. Si no, se pinta el canvas de
+    // fondo ya construido arriba (color + imagen cover) — misma fuente que la
+    // textura que muestrean las celdas con modo de capa.
+    if (!transparent && fondoCanvas) {
+      ctx.drawImage(fondoCanvas, 0, 0);
     }
 
     // Composita el mosaico respetando su opacidad y desenfoque por formato.
@@ -426,15 +442,9 @@ const Export = (() => {
       const mosOp = (State.mosaicOpacity && typeof State.mosaicOpacity[format.id] === 'number')
         ? State.mosaicOpacity[format.id] : 1;
       const blurPx = (typeof MosaicBlur !== 'undefined') ? MosaicBlur.blurPxFor(H, format.id) : 0;
-      // Modo de capa del mosaico entero contra el fondo. Solo con fondo (en PNG
-      // transparente no hay con qué mezclar → normal). Espejo del editor (CSS).
-      const blendOp = (!transparent && typeof BlendMode !== 'undefined')
-        ? BlendMode.canvasOpFor(format.id) : 'source-over';
       ctx.globalAlpha = mosOp;
       ctx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
-      if (blendOp !== 'source-over') ctx.globalCompositeOperation = blendOp;
       ctx.drawImage(renderer.domElement, 0, 0);
-      ctx.globalCompositeOperation = 'source-over';
       ctx.filter = 'none';
       ctx.globalAlpha = 1;
     }
@@ -918,12 +928,29 @@ const Export = (() => {
     // Opacidad efectiva: override por celda (State.cellOpacity vía comp) o diseño.
     const ovOp   = (_exComp && _exComp.cellOpacity) ? _exComp.cellOpacity[key] : undefined;
     const cellOp = (typeof ovOp === 'number') ? ovOp : (slot.opacity ?? 1);
-    const mat = new THREE.MeshBasicMaterial({
-      map:         tex,
-      side:        THREE.FrontSide,
-      transparent: true,
-      opacity:     cellOp,
-    });
+    // Modo de fusión efectivo (override por celda o default del formato). Si lleva
+    // modo y hay fondo, se usa el mismo shader que el editor (mezcla con el fondo).
+    const bmOv   = (_exComp && _exComp.cellBlendMode) ? _exComp.cellBlendMode[key] : undefined;
+    const bmDef  = (typeof State !== 'undefined' && State.mosaicBlendMode) ? State.mosaicBlendMode[_exFormatId] : undefined;
+    const modeId = bmOv || bmDef || 'normal';
+    let mat;
+    if (_exFondoTex && typeof BlendMode !== 'undefined' && modeId !== 'normal' && modeId !== 'pass-through') {
+      mat = BlendMode.makeMaterial(THREE, {
+        map:        tex,
+        fondoTex:   _exFondoTex,
+        resolution: _exFondoRes,
+        opacity:    cellOp,
+        modeIndex:  BlendMode.modeIndex(modeId),
+        flipY:      true,
+      });
+    } else {
+      mat = new THREE.MeshBasicMaterial({
+        map:         tex,
+        side:        THREE.FrontSide,
+        transparent: true,
+        opacity:     cellOp,
+      });
+    }
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x + w / 2, centerY, 0);
     mesh.userData.slot = { key, w, h };   // para el reparto de grupos

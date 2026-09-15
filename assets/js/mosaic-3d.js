@@ -64,6 +64,10 @@ const Mosaic3D = (() => {
   let _cellFrame    = {};    // clave → frame de diseño (default de borde por celda)
   let _cellBorderDef = {};   // clave → {color,width} de diseño (default de borde por celda)
   let _cellShadowDef = {};   // clave → {on,opacity,x,y,blur} de diseño (default de sombra por celda)
+  // MODO DE CAPA por celda: textura del fondo (espacio de pantalla) que muestrean
+  // los shaders de las celdas con modo de fusión, + resolución compartida.
+  let _fondoTex = null, _fondoCanvas = null, _fondoImg = null, _fondoImgUrl = null;
+  let _fbRes = null;         // THREE.Vector2 compartido (se actualiza en resize)
   let _raycaster    = null;  // THREE.Raycaster (lazy)
   let _highlightKey = null;  // contenedor con foco amarillo (interacción) o null
   let _capturing    = false; // true durante el snapshot de VER TODAS: oculta
@@ -253,6 +257,11 @@ const Mosaic3D = (() => {
     renderer.domElement.style.height = '100%';
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    // Modo de capa por celda: refresca resolución (uniform compartido) y textura
+    // de fondo al nuevo tamaño; si hay celdas con blend, reconstruye para que
+    // remuestreen el fondo. (Barato: solo si hay algún modo activo.)
+    _getFbRes();
+    if (_fondoTex) _updateFondoTexture();
     render();
   }
 
@@ -908,6 +917,67 @@ const Mosaic3D = (() => {
     });
   }
 
+  // ── MODO DE CAPA POR CELDA (blend con el fondo) ───────────
+  // Modo efectivo de una celda: override por celda o, si no, el default del
+  // formato. 'normal'/'pass-through' = sin shader (composición normal).
+  function _cellBlendModeId(key) {
+    const ov = (typeof State !== 'undefined' && State.cellBlendMode) ? State.cellBlendMode[key] : undefined;
+    if (ov) return ov;
+    const g = (typeof State !== 'undefined' && State.mosaicBlendMode) ? State.mosaicBlendMode[State.activeFormatId] : undefined;
+    return g || 'normal';
+  }
+  function _blendUsesShader(id) { return !!id && id !== 'normal' && id !== 'pass-through' && typeof BlendMode !== 'undefined'; }
+
+  function _getFbRes() {
+    if (!_fbRes) _fbRes = new THREE.Vector2(1, 1);
+    if (renderer) renderer.getDrawingBufferSize(_fbRes);
+    return _fbRes;
+  }
+  function _fondoColorNow() {
+    return (typeof Background !== 'undefined' && Background.get) ? Background.get(State.activeFormatId) : '#0e0e0e';
+  }
+  function _drawCoverCtx(ctx, img, w, h) {
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return;
+    const s = Math.max(w / iw, h / ih);
+    const dw = iw * s, dh = ih * s;
+    ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  }
+  // Carga (async) la imagen de fondo cuando cambia; al llegar, refresca y rebuild.
+  function _ensureFondoImage() {
+    const fmt = State.activeFormatId;
+    const hasImg = (typeof Background !== 'undefined' && Background.hasImage && Background.hasImage(fmt) &&
+                    (!Background.isVisible || Background.isVisible(fmt)));
+    const url = (hasImg && Background.getImageUrl) ? Background.getImageUrl(fmt) : null;
+    if (url === _fondoImgUrl) return;
+    _fondoImgUrl = url;
+    _fondoImg = null;
+    if (!url) return;
+    const im = new Image();
+    im.onload = () => { _fondoImg = im; _updateFondoTexture(); rebuild(); };
+    im.src = url;
+  }
+  // (Re)genera la textura del fondo (color + imagen cover) al tamaño del lienzo.
+  function _updateFondoTexture() {
+    const lienzo = document.getElementById('lienzo');
+    const w = Math.max(2, Math.round((lienzo && lienzo.clientWidth) || 512));
+    const h = Math.max(2, Math.round((lienzo && lienzo.clientHeight) || 512));
+    if (!_fondoCanvas) _fondoCanvas = document.createElement('canvas');
+    if (_fondoCanvas.width !== w)  _fondoCanvas.width  = w;
+    if (_fondoCanvas.height !== h) _fondoCanvas.height = h;
+    const cx = _fondoCanvas.getContext('2d');
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = _fondoColorNow();
+    cx.fillRect(0, 0, w, h);
+    if (_fondoImg) _drawCoverCtx(cx, _fondoImg, w, h);
+    if (!_fondoTex) {
+      _fondoTex = new THREE.CanvasTexture(_fondoCanvas);
+      if (THREE.SRGBColorSpace) _fondoTex.colorSpace = THREE.SRGBColorSpace;
+    }
+    _fondoTex.needsUpdate = true;
+    return _fondoTex;
+  }
+
   function _addMesh(slot, x, centerY, w, h) {
     const r = (params.radius / 1000) * CELL_H;
 
@@ -990,12 +1060,29 @@ const Mosaic3D = (() => {
     const ovOp = (typeof State !== 'undefined' && State.cellOpacity) ? State.cellOpacity[slotKey] : undefined;
     const cellOp = (typeof ovOp === 'number') ? ovOp : (slot.opacity ?? 1);
 
-    const mat = new THREE.MeshBasicMaterial({
-      map:         tex,
-      side:        THREE.FrontSide,
-      transparent: true,
-      opacity:     cellOp,
-    });
+    // Material: si la celda lleva modo de fusión (override o default del formato),
+    // se usa un ShaderMaterial que la mezcla con el fondo; si no, básico normal.
+    const modeId = _cellBlendModeId(slotKey);
+    let mat;
+    if (_blendUsesShader(modeId)) {
+      _ensureFondoImage();
+      const fondoTex = _updateFondoTexture();
+      mat = BlendMode.makeMaterial(THREE, {
+        map:        tex,
+        fondoTex:   fondoTex,
+        resolution: _getFbRes(),
+        opacity:    cellOp,
+        modeIndex:  BlendMode.modeIndex(modeId),
+        flipY:      true,
+      });
+    } else {
+      mat = new THREE.MeshBasicMaterial({
+        map:         tex,
+        side:        THREE.FrontSide,
+        transparent: true,
+        opacity:     cellOp,
+      });
+    }
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x + w / 2, centerY, 0);
     mesh.renderOrder = 1;
@@ -1558,6 +1645,7 @@ const Mosaic3D = (() => {
     if (typeof StacksBorder !== 'undefined' && StacksBorder.update) StacksBorder.update();
     if (typeof Shadow !== 'undefined' && Shadow.update) Shadow.update();
     if (typeof Glow !== 'undefined' && Glow.update) Glow.update();
+    if (typeof BlendMode !== 'undefined' && BlendMode.update) BlendMode.update();
     if (typeof Toolbar !== 'undefined' && Toolbar.update) Toolbar.update();
   }
   function toggleSelection(key) {
