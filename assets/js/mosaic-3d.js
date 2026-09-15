@@ -62,6 +62,8 @@ const Mosaic3D = (() => {
   let _slotIndex    = 0;     // contador de tiles durante _build()
   let _cellKeys     = [];    // claves de todas las celdas del build actual
   let _cellFrame    = {};    // clave → frame de diseño (default de borde por celda)
+  let _cellBorderDef = {};   // clave → {color,width} de diseño (default de borde por celda)
+  let _cellShadowDef = {};   // clave → {on,opacity,x,y,blur} de diseño (default de sombra por celda)
   let _raycaster    = null;  // THREE.Raycaster (lazy)
   let _highlightKey = null;  // contenedor con foco amarillo (interacción) o null
   let _capturing    = false; // true durante el snapshot de VER TODAS: oculta
@@ -293,6 +295,8 @@ const Mosaic3D = (() => {
     _slotIndex = 0; // reinicia el contador de claves de contenedor
     _cellKeys = [];  // se rellena en _addMesh (para operaciones "a todas")
     _cellFrame = {}; // clave → default de borde de diseño
+    _cellBorderDef = {}; // clave → default de color/grosor de borde de diseño
+    _cellShadowDef = {}; // clave → default de sombra de diseño
 
     if (activeSkeleton.type === 'grid') {
       _buildGrid(activeSkeleton);
@@ -506,7 +510,13 @@ const Mosaic3D = (() => {
       const h = c.h * unit - gap;
       const left = offX + c.x * unit + gap / 2;
       const top  = topY - c.y * unit - gap / 2;
-      _addMesh({ n: c.n, ratio: c.r, opacity: 1 }, left, top - h / 2, w, h);
+      _addMesh({
+        n: c.n, ratio: c.r,
+        opacity:   (typeof c.opacity === 'number') ? c.opacity : 1,
+        frame:     !!c.border,                                    // marco ON por diseño
+        borderDef: c.border ? (esq.borderDefault || null) : null, // color/grosor por diseño
+        shadowDef: c.shadow ? Object.assign({ on: true }, esq.shadowDefault || {}) : null,
+      }, left, top - h / 2, w, h);
     });
     mosaicBounds = { width: totalW, height: totalH };
   }
@@ -703,11 +713,17 @@ const Mosaic3D = (() => {
   }
   function _cellBorderColorFor(slotKey) {
     const ov = (typeof State !== 'undefined' && State.cellBorderColor) ? State.cellBorderColor[slotKey] : undefined;
-    return ov || _stacksBorderColor();
+    if (ov) return ov;
+    const d = _cellBorderDef[slotKey];   // default de diseño (p.ej. DESTACADOS: blanco)
+    if (d && d.color) return d.color;
+    return _stacksBorderColor();
   }
   function _cellBorderWidthFor(slotKey) {
     const ov = (typeof State !== 'undefined' && State.cellBorderWidth) ? State.cellBorderWidth[slotKey] : undefined;
-    return (typeof ov === 'number' && ov >= 0) ? ov : _stacksBorderWidth();
+    if (typeof ov === 'number' && ov >= 0) return ov;
+    const d = _cellBorderDef[slotKey];   // default de diseño (p.ej. DESTACADOS: 1px)
+    if (d && typeof d.width === 'number' && d.width >= 0) return d.width;
+    return _stacksBorderWidth();
   }
 
   // ── SOMBRA POR CELDA ──────────────────────────────────────
@@ -717,18 +733,23 @@ const Mosaic3D = (() => {
   const SH_OP_DEF = 0.45, SH_X_DEF = 0, SH_Y_DEF = 0, SH_BLUR_DEF = 0.35;
   function _shadowOn(key) {
     const ov = (typeof State !== 'undefined' && State.cellShadow) ? State.cellShadow[key] : undefined;
-    return (typeof ov === 'boolean') ? ov : false;
+    if (typeof ov === 'boolean') return ov;
+    const d = _cellShadowDef[key];       // default de diseño (p.ej. DESTACADOS: on en no-destacadas)
+    return !!(d && d.on);
   }
-  function _shProp(key, cellMap, fmtMap, def) {
+  // designVal = valor por defecto de diseño de esta celda (o undefined).
+  function _shProp(key, cellMap, fmtMap, designVal, def) {
     const ov = (typeof State !== 'undefined' && State[cellMap]) ? State[cellMap][key] : undefined;
     if (typeof ov === 'number') return ov;
+    if (typeof designVal === 'number') return designVal;
     const g = (typeof State !== 'undefined' && State[fmtMap]) ? State[fmtMap][State.activeFormatId] : undefined;
     return (typeof g === 'number') ? g : def;
   }
-  function _shadowOpacity(key) { return _shProp(key, 'cellShadowOpacity', 'shadowOpacity', SH_OP_DEF); }
-  function _shadowX(key)       { return _shProp(key, 'cellShadowX', 'shadowX', SH_X_DEF); }   // -0.5..0.5 (frac dim menor)
-  function _shadowY(key)       { return _shProp(key, 'cellShadowY', 'shadowY', SH_Y_DEF); }
-  function _shadowBlur(key)    { return _shProp(key, 'cellShadowBlur', 'shadowBlur', SH_BLUR_DEF); } // 0..1
+  function _shDef(key, prop) { const d = _cellShadowDef[key]; return d ? d[prop] : undefined; }
+  function _shadowOpacity(key) { return _shProp(key, 'cellShadowOpacity', 'shadowOpacity', _shDef(key, 'opacity'), SH_OP_DEF); }
+  function _shadowX(key)       { return _shProp(key, 'cellShadowX', 'shadowX', _shDef(key, 'x'), SH_X_DEF); }   // -0.5..0.5 (frac dim menor)
+  function _shadowY(key)       { return _shProp(key, 'cellShadowY', 'shadowY', _shDef(key, 'y'), SH_Y_DEF); }
+  function _shadowBlur(key)    { return _shProp(key, 'cellShadowBlur', 'shadowBlur', _shDef(key, 'blur'), SH_BLUR_DEF); } // 0..1
   // API pública para el control contextual (Fase 2).
   function getCellShadow(key)        { return _shadowOn(key); }
   function getCellShadowOpacity(key) { return _shadowOpacity(key); }
@@ -886,6 +907,8 @@ const Mosaic3D = (() => {
     _slotIndex++;
     _cellKeys.push(slotKey);       // registro para operaciones "a todas"
     _cellFrame[slotKey] = !!slot.frame;   // default de borde de diseño
+    _cellBorderDef[slotKey] = slot.borderDef || null;  // color/grosor de borde por diseño
+    _cellShadowDef[slotKey] = slot.shadowDef || null;  // sombra por diseño
 
     // Sombra de la celda (detrás de todo, desplazada X/Y en el plano).
     _addCellShadow(x, centerY, w, h, r, slotKey);

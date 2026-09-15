@@ -429,6 +429,43 @@ const Skeletons = (() => {
       ],
     },
 
+    // ── DESTACADOS x3 ──────────────────────────────────────────
+    // Collage libre: 3 verticales centrales DESTACADAS (1,2,3) opacas + marco
+    // blanco 1px, flanqueadas por parejas verticales (4/5 y 6/7) y horizontales.
+    // Todo lo que no es destacado va al 77% de opacidad + sombra por defecto.
+    // Los efectos son DEFAULTS del mosaico: editables por celda después.
+    'destacados-x3': {
+      id:   'destacados-x3',
+      name: 'DESTACADOS x3',
+      type: 'free',
+      grid: { w: 11, h: 4 },
+      // Sombra por defecto de las celdas no destacadas (Drop Shadow del diseño:
+      // negro, opacidad 35%, sin desplazamiento, tamaño ~76px → desenfoque a ojo).
+      shadowDefault: { opacity: 0.35, x: 0, y: 0, blur: 0.5 },
+      // Marco por defecto de las destacadas (blanco 1px).
+      borderDefault: { color: '#ffffff', width: 1 },
+      cells: [
+        // Destacadas (opacas + marco blanco 1px).
+        { n: 1, r: 'V', x: 5, y: 1, w: 1, h: 2, opacity: 1, border: true },
+        { n: 2, r: 'V', x: 6, y: 1, w: 1, h: 2, opacity: 1, border: true },
+        { n: 3, r: 'V', x: 7, y: 1, w: 1, h: 2, opacity: 1, border: true },
+        // Parejas verticales laterales (77% + sombra).
+        { n: 4,  r: 'V', x: 2,  y: 0, w: 1, h: 2, opacity: 0.77, shadow: true },
+        { n: 5,  r: 'V', x: 2,  y: 2, w: 1, h: 2, opacity: 0.77, shadow: true },
+        { n: 6,  r: 'V', x: 10, y: 0, w: 1, h: 2, opacity: 0.77, shadow: true },
+        { n: 7,  r: 'V', x: 10, y: 2, w: 1, h: 2, opacity: 0.77, shadow: true },
+        // Horizontales (77% + sombra).
+        { n: 8,  r: 'H', x: 0,  y: 0, w: 2, h: 1, opacity: 0.77, shadow: true },
+        { n: 9,  r: 'H', x: 0,  y: 1, w: 2, h: 1, opacity: 0.77, shadow: true },
+        { n: 10, r: 'H', x: 3,  y: 1, w: 2, h: 1, opacity: 0.77, shadow: true },
+        { n: 11, r: 'H', x: 0,  y: 2, w: 2, h: 1, opacity: 0.77, shadow: true },
+        { n: 12, r: 'H', x: 5,  y: 0, w: 2, h: 1, opacity: 0.77, shadow: true },
+        { n: 13, r: 'H', x: 5,  y: 3, w: 2, h: 1, opacity: 0.77, shadow: true },
+        { n: 14, r: 'H', x: 7,  y: 3, w: 2, h: 1, opacity: 0.77, shadow: true },
+        { n: 15, r: 'H', x: 8,  y: 1, w: 2, h: 1, opacity: 0.77, shadow: true },
+      ],
+    },
+
   };
 
   function init() {
