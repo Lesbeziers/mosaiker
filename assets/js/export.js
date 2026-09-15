@@ -627,7 +627,9 @@ const Export = (() => {
   }
 
   function _buildFree(THREE, pivot, esq, p, getTexture) {
-    const gap  = (p.gap ?? 8) * 0.01;
+    // bakedGap: separaciones integradas en las coordenadas → no se resta gap
+    // (espejo de mosaic-3d._buildFree, para no deformar 9:16 / 16:9).
+    const gap  = esq.bakedGap ? 0 : (p.gap ?? 8) * 0.01;
     const unit = CELL_H;
     let maxX = 0, maxY = 0;
     esq.cells.forEach(c => { maxX = Math.max(maxX, c.x + c.w); maxY = Math.max(maxY, c.y + c.h); });

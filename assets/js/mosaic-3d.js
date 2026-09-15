@@ -499,7 +499,11 @@ const Mosaic3D = (() => {
   // rejilla y su ratio ('H'|'V'|'S'). El eje Y de la rejilla crece hacia abajo.
   // Cada pieza se mete medio gap por lado → separación uniforme entre todas.
   function _buildFree(esq) {
-    const gap  = params.gap * 0.01;
+    // bakedGap: las separaciones ya están integradas en las coordenadas → NO se
+    // resta gap (restarlo deformaría la proporción de las celdas, que son 9:16 /
+    // 16:9 exactas). Si no, comportamiento clásico (gap absoluto por celda).
+    const baked = !!esq.bakedGap;
+    const gap  = baked ? 0 : params.gap * 0.01;
     const unit = CELL_H;
     let maxX = 0, maxY = 0;
     esq.cells.forEach(c => { maxX = Math.max(maxX, c.x + c.w); maxY = Math.max(maxY, c.y + c.h); });
