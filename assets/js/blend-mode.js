@@ -18,7 +18,11 @@
 const BlendMode = (() => {
 
   const MODES = [
-    { id: 'normal',      label: 'Pass Through',        css: 'normal',      canvas: 'source-over' },
+    // Normal (default) y Pass Through. En Fase 1 (mosaico entero) ambos componen
+    // igual sobre el fondo; su diferencia real (grupo aislado vs dejar pasar los
+    // modos por celda hasta el fondo) cobrará sentido en la Fase 2 por celda.
+    { id: 'normal',      label: 'Normal',              css: 'normal',      canvas: 'source-over' },
+    { id: 'pass-through',label: 'Pass Through',        css: 'normal',      canvas: 'source-over' },
     { id: 'multiply',    label: 'Multiplicar',         css: 'multiply',    canvas: 'multiply' },
     { id: 'screen',      label: 'Trama',               css: 'screen',      canvas: 'screen' },
     { id: 'overlay',     label: 'Superponer',          css: 'overlay',     canvas: 'overlay' },
