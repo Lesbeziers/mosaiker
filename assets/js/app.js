@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   StacksBorder.init();
   Shadow.init();
   Glow.init();
+  BlendMode.init();
   Background.init();
   Layers.init();
   Project.init();

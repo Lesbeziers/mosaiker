@@ -426,9 +426,15 @@ const Export = (() => {
       const mosOp = (State.mosaicOpacity && typeof State.mosaicOpacity[format.id] === 'number')
         ? State.mosaicOpacity[format.id] : 1;
       const blurPx = (typeof MosaicBlur !== 'undefined') ? MosaicBlur.blurPxFor(H, format.id) : 0;
+      // Modo de capa del mosaico entero contra el fondo. Solo con fondo (en PNG
+      // transparente no hay con qué mezclar → normal). Espejo del editor (CSS).
+      const blendOp = (!transparent && typeof BlendMode !== 'undefined')
+        ? BlendMode.canvasOpFor(format.id) : 'source-over';
       ctx.globalAlpha = mosOp;
       ctx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
+      if (blendOp !== 'source-over') ctx.globalCompositeOperation = blendOp;
       ctx.drawImage(renderer.domElement, 0, 0);
+      ctx.globalCompositeOperation = 'source-over';
       ctx.filter = 'none';
       ctx.globalAlpha = 1;
     }

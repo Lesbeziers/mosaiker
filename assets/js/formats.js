@@ -255,6 +255,7 @@ const Formats = (() => {
     if (typeof Shadow        !== 'undefined') Shadow.update();
     if (typeof Glow          !== 'undefined') Glow.update();
     if (typeof Background    !== 'undefined') Background.update();
+    if (typeof BlendMode     !== 'undefined') BlendMode.update();
     // Aplica el mosaico + transform de este formato (auto-encuadre la 1ª vez,
     // restaura el encuadre guardado las siguientes).
     if (typeof Mosaic3D      !== 'undefined') Mosaic3D.applyFormat(comp);

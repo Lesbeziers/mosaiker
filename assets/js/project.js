@@ -209,6 +209,7 @@ const Project = (() => {
     State.vignettes         = JSON.parse(JSON.stringify(data.vignettes || {}));
     State.mosaicOpacity     = { ...(data.mosaicOpacity    || {}) };
     State.mosaicBlur        = { ...(data.mosaicBlur       || {}) };
+    State.mosaicBlendMode   = { ...(data.mosaicBlendMode  || {}) };
     State.stacksBorder      = { ...(data.stacksBorder     || {}) };
     State.stacksBorderWidth = { ...(data.stacksBorderWidth || {}) };
     State.stacksBorderColor = { ...(data.stacksBorderColor || {}) };
@@ -395,6 +396,7 @@ const Project = (() => {
       vignettes:       JSON.parse(JSON.stringify(State.vignettes)),
       mosaicOpacity:   { ...State.mosaicOpacity },
       mosaicBlur:      { ...State.mosaicBlur },
+      mosaicBlendMode: { ...State.mosaicBlendMode },
       stacksBorder:    { ...State.stacksBorder },
       stacksBorderWidth: { ...State.stacksBorderWidth },
       stacksBorderColor: { ...State.stacksBorderColor },

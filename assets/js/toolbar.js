@@ -15,7 +15,9 @@ const Toolbar = (() => {
   // Botones que solo aplican al formato → se atenúan si hay selección.
   // 'desenfoque' es GENERAL (por formato): se probó por celda y se descartó, así
   // que se queda aquí (solo-formato, se atenúa con selección).
-  const FORMAT_ONLY = ['fondo', 'desenfoque'];
+  // 'modocapa' (Fase 1) aplica al mosaico entero → solo-formato, se atenúa con
+  // selección (la Fase 2 lo pasará a contextual con modo por celda).
+  const FORMAT_ONLY = ['fondo', 'desenfoque', 'modocapa'];
   // Botones cuyo ámbito SIGUE a la selección (título Mosaico ↔ Carátula/s).
   const CONTEXTUAL = ['opacidad', 'borde', 'shadow', 'glow'];
   let _open = null;

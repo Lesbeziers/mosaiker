@@ -75,6 +75,12 @@ const State = {
   // Default = 0 (nítido). Sólo afecta al mosaico 3D, no a viñeta ni overlays.
   mosaicBlur: {},
 
+  // Modo de fusión (blend mode) del MOSAICO ENTERO contra el fondo, por formato.
+  // clave = formatId, valor = id de modo (ver BlendMode.MODES). Ausente o
+  // 'normal' = Pass Through (composición normal). Editor vía CSS mix-blend-mode;
+  // Export vía globalCompositeOperation.
+  mosaicBlendMode: {},
+
   // Color de fondo del lienzo por formato (hex). Default = '#0e0e0e'.
   // Se pinta detrás del mosaico en editor, VER TODAS y exportación.
   backgrounds: {},
