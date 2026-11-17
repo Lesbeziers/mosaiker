@@ -17,7 +17,8 @@ const Toolbar = (() => {
   // que se queda aquí (solo-formato, se atenúa con selección).
   const FORMAT_ONLY = ['fondo', 'desenfoque'];
   // Botones cuyo ámbito SIGUE a la selección (título Mosaico ↔ Carátula/s).
-  const CONTEXTUAL = ['opacidad', 'borde', 'shadow', 'glow'];
+  // 'modocapa' aplica el modo de fusión a todas o a la selección (por celda).
+  const CONTEXTUAL = ['opacidad', 'borde', 'shadow', 'glow', 'modocapa'];
   let _open = null;
 
   function init() {

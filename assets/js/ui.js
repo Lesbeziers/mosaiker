@@ -482,7 +482,7 @@ const UI = (() => {
     const isRows = esq.type === 'rows';
     const numLanes = isRows
       ? (esq.rows ? esq.rows.length : 0)
-      : ((esq.type === 'columns' || esq.type === 'vcolumns') && esq.cols ? esq.cols.length : 0);
+      : ((esq.type === 'columns' || esq.type === 'vcolumns' || esq.type === 'stacks') && esq.cols ? esq.cols.length : 0);
     if (numLanes === 0) {
       block.style.display = 'none';
       row.innerHTML = '';

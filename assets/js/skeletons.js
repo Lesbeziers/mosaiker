@@ -272,6 +272,9 @@ const Skeletons = (() => {
       id:   'horizontal',
       name: 'ZIG-ZAG',
       type: 'stacks',
+      // Offset ajustable por columna (además del escalonado fijo `drop`). Todo a
+      // 0 = aspecto por defecto; el usuario puede subir/bajar cada columna.
+      defaultOffsets: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       cols: [
         // ── bloque izquierdo (igual que ZIG-ZAG + SELLO) ──
         { drop: 0,   cells: [ { n: 10, opacity: 0.2 }, { n: 1,  opacity: 1   } ] },
@@ -308,6 +311,9 @@ const Skeletons = (() => {
       name: 'ZIG-ZAG + SELLO',
       type: 'stacks',
       band: { after: 4 }, // ancho de la calle = ancho de carátula (VERT_W)
+      // Offset ajustable por columna (además del `drop` fijo). Todo a 0 = aspecto
+      // por defecto.
+      defaultOffsets: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       cols: [
         { drop: 0,   cells: [ { n: 10, opacity: 0.2 }, { n: 1,  opacity: 1   } ] },
         { drop: 0.5, cells: [ { n: 2,  opacity: 1   }, { n: 9,  opacity: 0.2 } ] },
@@ -420,6 +426,55 @@ const Skeletons = (() => {
         { n: 33, r: 'S', x: 5, y: 5, w: 1, h: 1 },
         { n: 34, r: 'H', x: 6, y: 5, w: 2, h: 1 },
         { n: 35, r: 'H', x: 8, y: 5, w: 2, h: 1 },
+      ],
+    },
+
+    // ── DESTACADOS x3 ──────────────────────────────────────────
+    // Collage libre: 3 verticales centrales DESTACADAS (1,2,3) opacas + marco
+    // blanco 1px, flanqueadas por parejas verticales (4/5 y 6/7) y horizontales.
+    // Todo lo que no es destacado va al 77% de opacidad + sombra por defecto.
+    // Los efectos son DEFAULTS del mosaico: editables por celda después.
+    'destacados-x3': {
+      id:   'destacados-x3',
+      name: 'DESTACADOS x3',
+      type: 'free',
+      grid: { w: 6, h: 3 },
+      // CALCADO EXACTO del grid del cliente (medido en Illustrator sobre lienzo
+      // 1920×1080). Datos originales = CENTRO de cada caja; aquí convertidos a
+      // esquina sup-izq y normalizados /277 (alto de la vertical = 1.0):
+      //   Verticales: 180×277 px  -> w 0.6498 × h 1.0
+      //   Horizontales: 290×185 px -> w 1.0469 × h 0.6679  (13 y 14: 280 -> 1.0108)
+      //   Separación real ~19.96 px -> ~0.072 (ya integrada en las coordenadas).
+      // bakedGap: las coordenadas ya traen su separación; el slider "Separación"
+      // aplica solo la DIFERENCIA respecto al valor por defecto (8) como inset
+      // uniforme → en 8 queda el calco exacto y se puede apretar/soltar.
+      bakedGap: true,
+      // Sombra por defecto de las celdas no destacadas (Drop Shadow del diseño:
+      // negro, opacidad 35%, sin desplazamiento, tamaño ~76px → desenfoque a ojo).
+      shadowDefault: { opacity: 0.35, x: 0, y: 0, blur: 0.5 },
+      // Marco por defecto de las destacadas (blanco 1px).
+      borderDefault: { color: '#ffffff', width: 1 },
+      cells: [
+        // Destacadas (verticales, opacas + marco blanco 1px).
+        { n: 1, r: 'V', x: 2.2380, y: 0.7400, w: 0.6498, h: 1.0, opacity: 1, border: true },
+        { n: 2, r: 'V', x: 2.9599, y: 0.7400, w: 0.6498, h: 1.0, opacity: 1, border: true },
+        { n: 3, r: 'V', x: 3.6817, y: 0.7400, w: 0.6498, h: 1.0, opacity: 1, border: true },
+        // Parejas verticales laterales (77% + sombra).
+        { n: 4, r: 'V', x: 1.5161, y: 0.0000, w: 0.6498, h: 1.0, opacity: 0.77, shadow: true },
+        { n: 5, r: 'V', x: 1.5161, y: 1.8119, w: 0.6498, h: 1.0, opacity: 0.77, shadow: true },
+        { n: 6, r: 'V', x: 4.4036, y: 0.0000, w: 0.6498, h: 1.0, opacity: 0.77, shadow: true },
+        { n: 7, r: 'V', x: 4.4036, y: 1.8119, w: 0.6498, h: 1.0, opacity: 0.77, shadow: true },
+        // Horizontales (77% + sombra).
+        { n: 8,  r: 'H', x: 0.3972, y: 0.3321, w: 1.0469, h: 0.6679, opacity: 0.77, shadow: true },
+        { n: 9,  r: 'H', x: 0.0000, y: 1.0720, w: 1.0469, h: 0.6679, opacity: 0.77, shadow: true },
+        { n: 10, r: 'H', x: 1.1191, y: 1.0720, w: 1.0469, h: 0.6679, opacity: 0.77, shadow: true },
+        { n: 11, r: 'H', x: 0.3972, y: 1.8119, w: 1.0469, h: 0.6679, opacity: 0.77, shadow: true },
+        { n: 12, r: 'H', x: 2.2380, y: 0.0000, w: 1.0108, h: 0.6679, opacity: 0.77, shadow: true },
+        { n: 13, r: 'H', x: 2.2380, y: 1.8119, w: 1.0108, h: 0.6679, opacity: 0.77, shadow: true },
+        { n: 14, r: 'H', x: 3.3207, y: 1.8119, w: 1.0108, h: 0.6679, opacity: 0.77, shadow: true },
+        { n: 15, r: 'H', x: 4.4036, y: 1.0720, w: 1.0469, h: 0.6679, opacity: 0.77, shadow: true },
+        // 16: espejo del 14 en el hueco superior (junto al 12, idéntico a él).
+        { n: 16, r: 'H', x: 3.3207, y: 0.0000, w: 1.0108, h: 0.6679, opacity: 0.77, shadow: true },
       ],
     },
 

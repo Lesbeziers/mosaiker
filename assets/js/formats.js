@@ -105,6 +105,7 @@ const Formats = (() => {
         cellShadowX:     {},     // offset X de sombra por celda
         cellShadowY:     {},     // offset Y de sombra por celda
         cellShadowBlur:  {},     // desenfoque de sombra por celda
+        cellBlendMode:   {},     // modo de fusión por celda (override del default de formato)
         cellGlow:        {},     // glow on/off por celda
         cellGlowColor:   {},     // color de glow por celda
         cellGlowIntensity: {},   // intensidad de glow por celda
@@ -143,6 +144,7 @@ const Formats = (() => {
     dst.cellShadowX       = { ...(src.cellShadowX || {}) };
     dst.cellShadowY       = { ...(src.cellShadowY || {}) };
     dst.cellShadowBlur    = { ...(src.cellShadowBlur || {}) };
+    dst.cellBlendMode     = { ...(src.cellBlendMode || {}) };
     dst.cellGlow          = { ...(src.cellGlow || {}) };
     dst.cellGlowColor     = { ...(src.cellGlowColor || {}) };
     dst.cellGlowIntensity = { ...(src.cellGlowIntensity || {}) };
@@ -233,6 +235,8 @@ const Formats = (() => {
     State.cellShadowX       = comp.cellShadowX;
     State.cellShadowY       = comp.cellShadowY;
     State.cellShadowBlur    = comp.cellShadowBlur;
+    if (!comp.cellBlendMode) comp.cellBlendMode = {};   // compat: modo de fusión por celda
+    State.cellBlendMode     = comp.cellBlendMode;
     if (!comp.cellGlow)          comp.cellGlow = {};       // compat: glow por celda
     if (!comp.cellGlowColor)     comp.cellGlowColor = {};
     if (!comp.cellGlowIntensity) comp.cellGlowIntensity = {};
@@ -255,6 +259,7 @@ const Formats = (() => {
     if (typeof Shadow        !== 'undefined') Shadow.update();
     if (typeof Glow          !== 'undefined') Glow.update();
     if (typeof Background    !== 'undefined') Background.update();
+    if (typeof BlendMode     !== 'undefined') BlendMode.update();
     // Aplica el mosaico + transform de este formato (auto-encuadre la 1ª vez,
     // restaura el encuadre guardado las siguientes).
     if (typeof Mosaic3D      !== 'undefined') Mosaic3D.applyFormat(comp);

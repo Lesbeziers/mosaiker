@@ -118,6 +118,9 @@
   overflow: hidden;
   display: none;
   box-shadow: 0 0 0 1px #444;
+  /* Contiene el mix-blend-mode del MODO CAPA: el mosaico se mezcla solo con el
+     fondo del lienzo, nunca con elementos de fuera. */
+  isolation: isolate;
 }
 
 /* ── CANVAS WEBGL (mosaic-3d) DENTRO DEL LIENZO ───────────── */

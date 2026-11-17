@@ -329,3 +329,18 @@ body.view-all #bottombar {
 /* Sub-labels (MOSAICO / CARÁTULA) apagados — jerarquía bajo el amarillo del bloque.
    (Va al final para ganar a la regla base de .bb-slider-label.) */
 .bb-sublabel { color: var(--col-text-muted); }
+
+/* Selector de MODO CAPA (blend mode) en su popover. */
+.bb-blend-select {
+  background: var(--col-surface);
+  color: var(--col-text);
+  border: 1px solid var(--col-border);
+  border-radius: 3px;
+  padding: 4px 8px;
+  font-size: 12px;
+  min-width: 150px;
+  cursor: pointer;
+  outline: none;
+}
+.bb-blend-select:hover  { border-color: var(--col-yellow); }
+.bb-blend-select:focus  { border-color: var(--col-yellow); }

@@ -75,6 +75,16 @@ const State = {
   // Default = 0 (nítido). Sólo afecta al mosaico 3D, no a viñeta ni overlays.
   mosaicBlur: {},
 
+  // Modo de fusión (blend mode) del mosaico contra el fondo.
+  // - mosaicBlendMode[formatId] = modo POR DEFECTO del formato (todas las celdas
+  //   sin override). Ausente o 'normal' = Normal.
+  // - cellBlendMode[key] = override POR CELDA (clave `${skeletonId}:${idx}`).
+  //   PUNTERO a la composición activa (se intercambia en Formats.setActive),
+  //   igual que cellShadow. Efectivo = cellBlendMode[key] ?? mosaicBlendMode[fmt].
+  // Se aplica por celda vía shader (mezcla con el fondo en espacio de pantalla).
+  mosaicBlendMode: {},
+  cellBlendMode: {},
+
   // Color de fondo del lienzo por formato (hex). Default = '#0e0e0e'.
   // Se pinta detrás del mosaico en editor, VER TODAS y exportación.
   backgrounds: {},

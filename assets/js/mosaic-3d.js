@@ -62,6 +62,12 @@ const Mosaic3D = (() => {
   let _slotIndex    = 0;     // contador de tiles durante _build()
   let _cellKeys     = [];    // claves de todas las celdas del build actual
   let _cellFrame    = {};    // clave → frame de diseño (default de borde por celda)
+  let _cellBorderDef = {};   // clave → {color,width} de diseño (default de borde por celda)
+  let _cellShadowDef = {};   // clave → {on,opacity,x,y,blur} de diseño (default de sombra por celda)
+  // MODO DE CAPA por celda: textura del fondo (espacio de pantalla) que muestrean
+  // los shaders de las celdas con modo de fusión, + resolución compartida.
+  let _fondoTex = null, _fondoCanvas = null, _fondoImg = null, _fondoImgUrl = null;
+  let _fbRes = null;         // THREE.Vector2 compartido (se actualiza en resize)
   let _raycaster    = null;  // THREE.Raycaster (lazy)
   let _highlightKey = null;  // contenedor con foco amarillo (interacción) o null
   let _capturing    = false; // true durante el snapshot de VER TODAS: oculta
@@ -251,6 +257,11 @@ const Mosaic3D = (() => {
     renderer.domElement.style.height = '100%';
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    // Modo de capa por celda: refresca resolución (uniform compartido) y textura
+    // de fondo al nuevo tamaño; si hay celdas con blend, reconstruye para que
+    // remuestreen el fondo. (Barato: solo si hay algún modo activo.)
+    _getFbRes();
+    if (_fondoTex) _updateFondoTexture();
     render();
   }
 
@@ -293,6 +304,8 @@ const Mosaic3D = (() => {
     _slotIndex = 0; // reinicia el contador de claves de contenedor
     _cellKeys = [];  // se rellena en _addMesh (para operaciones "a todas")
     _cellFrame = {}; // clave → default de borde de diseño
+    _cellBorderDef = {}; // clave → default de color/grosor de borde de diseño
+    _cellShadowDef = {}; // clave → default de sombra de diseño
 
     if (activeSkeleton.type === 'grid') {
       _buildGrid(activeSkeleton);
@@ -495,18 +508,33 @@ const Mosaic3D = (() => {
   // rejilla y su ratio ('H'|'V'|'S'). El eje Y de la rejilla crece hacia abajo.
   // Cada pieza se mete medio gap por lado → separación uniforme entre todas.
   function _buildFree(esq) {
-    const gap  = params.gap * 0.01;
+    // Inset uniforme por celda (medio por lado) = separación entre celdas.
+    // bakedGap: las coordenadas YA traen la separación del diseño; el slider
+    // aplica solo la DIFERENCIA respecto al valor por defecto (GAP_DEF) → en el
+    // valor por defecto queda el calco exacto y al mover el slider los huecos
+    // cambian igual en todas (sin deformar de más). Sin bakedGap: gap clásico.
+    const baked = !!esq.bakedGap;
+    const GAP_DEF = 0.08;   // gap por defecto (slider = 8) → inset 0 en modo baked
+    let d = params.gap * 0.01;
+    if (baked) d = Math.max(-0.06, d - GAP_DEF);   // clamp para no cerrar del todo
+    const gap = d;
     const unit = CELL_H;
     let maxX = 0, maxY = 0;
     esq.cells.forEach(c => { maxX = Math.max(maxX, c.x + c.w); maxY = Math.max(maxY, c.y + c.h); });
     const totalW = maxX * unit, totalH = maxY * unit;
     const offX = -totalW / 2, topY = totalH / 2;
     esq.cells.forEach(c => {
-      const w = c.w * unit - gap;
-      const h = c.h * unit - gap;
-      const left = offX + c.x * unit + gap / 2;
-      const top  = topY - c.y * unit - gap / 2;
-      _addMesh({ n: c.n, ratio: c.r, opacity: 1 }, left, top - h / 2, w, h);
+      const w = Math.max(0.05 * unit, c.w * unit - gap * unit);
+      const h = Math.max(0.05 * unit, c.h * unit - gap * unit);
+      const left = offX + c.x * unit + gap * unit / 2;
+      const top  = topY - c.y * unit - gap * unit / 2;
+      _addMesh({
+        n: c.n, ratio: c.r,
+        opacity:   (typeof c.opacity === 'number') ? c.opacity : 1,
+        frame:     !!c.border,                                    // marco ON por diseño
+        borderDef: c.border ? (esq.borderDefault || null) : null, // color/grosor por diseño
+        shadowDef: c.shadow ? Object.assign({ on: true }, esq.shadowDefault || {}) : null,
+      }, left, top - h / 2, w, h);
     });
     mosaicBounds = { width: totalW, height: totalH };
   }
@@ -524,15 +552,26 @@ const Mosaic3D = (() => {
     // 1) Calcula posiciones de cada celda y los límites del mosaico.
     //    La banda se inserta como una "calle" entre dos columnas, con su
     //    propio gap a cada lado (igual que la separación entre columnas).
+    // Offset ajustable por columna (sumado al escalonado fijo `drop`). Se lee del
+    // estado; si no coincide con el nº de columnas, cae a defaultOffsets o ceros.
+    const numCols = esq.cols.length;
+    const stateOffsets = State?.transform?.colOffsets;
+    const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numCols)
+      ? stateOffsets
+      : (esq.defaultOffsets || new Array(numCols).fill(0));
+
+    // El centrado y la banda se calculan con el layout BASE (solo `drop`), sin el
+    // offset del usuario; el offset se suma DESPUÉS al colocar cada columna. Así
+    // mover una columna no recoloca el resto ni estira la banda del sello.
     const cells = [];
     let cursor = 0, maxX = 0, topMost = -Infinity, bottomMost = Infinity;
     let laneX = null;
     esq.cols.forEach((col, ci) => {
       const drop = col.drop || 0;
-      let top = -drop * step;
+      let top = -drop * step;   // BASE (sin offset de usuario)
       col.cells.forEach(c => {
         const cy = top - CELL_H / 2;
-        cells.push({ x: cursor, cy, n: c.n, opacity: c.opacity ?? 1 });
+        cells.push({ x: cursor, cy, n: c.n, opacity: c.opacity ?? 1, ci });
         if (cursor + VERT_W > maxX)     maxX = cursor + VERT_W;
         if (top > topMost)              topMost = top;
         if (cy - CELL_H / 2 < bottomMost) bottomMost = cy - CELL_H / 2;
@@ -547,11 +586,11 @@ const Mosaic3D = (() => {
     const offsetX = -width / 2;
     const offsetY = -(topMost + bottomMost) / 2;
 
-    // 2) Crea los meshes de carátulas centrados
+    // 2) Crea los meshes; el offset del usuario mueve SOLO su columna.
     cells.forEach(c => {
       _addMesh(
         { n: c.n, ratio: 'V', opacity: c.opacity, frame: c.opacity >= 0.99 },
-        c.x + offsetX, c.cy + offsetY, VERT_W, CELL_H
+        c.x + offsetX, c.cy + offsetY + (offsets[c.ci] || 0), VERT_W, CELL_H
       );
     });
 
@@ -692,11 +731,17 @@ const Mosaic3D = (() => {
   }
   function _cellBorderColorFor(slotKey) {
     const ov = (typeof State !== 'undefined' && State.cellBorderColor) ? State.cellBorderColor[slotKey] : undefined;
-    return ov || _stacksBorderColor();
+    if (ov) return ov;
+    const d = _cellBorderDef[slotKey];   // default de diseño (p.ej. DESTACADOS: blanco)
+    if (d && d.color) return d.color;
+    return _stacksBorderColor();
   }
   function _cellBorderWidthFor(slotKey) {
     const ov = (typeof State !== 'undefined' && State.cellBorderWidth) ? State.cellBorderWidth[slotKey] : undefined;
-    return (typeof ov === 'number' && ov >= 0) ? ov : _stacksBorderWidth();
+    if (typeof ov === 'number' && ov >= 0) return ov;
+    const d = _cellBorderDef[slotKey];   // default de diseño (p.ej. DESTACADOS: 1px)
+    if (d && typeof d.width === 'number' && d.width >= 0) return d.width;
+    return _stacksBorderWidth();
   }
 
   // ── SOMBRA POR CELDA ──────────────────────────────────────
@@ -706,18 +751,23 @@ const Mosaic3D = (() => {
   const SH_OP_DEF = 0.45, SH_X_DEF = 0, SH_Y_DEF = 0, SH_BLUR_DEF = 0.35;
   function _shadowOn(key) {
     const ov = (typeof State !== 'undefined' && State.cellShadow) ? State.cellShadow[key] : undefined;
-    return (typeof ov === 'boolean') ? ov : false;
+    if (typeof ov === 'boolean') return ov;
+    const d = _cellShadowDef[key];       // default de diseño (p.ej. DESTACADOS: on en no-destacadas)
+    return !!(d && d.on);
   }
-  function _shProp(key, cellMap, fmtMap, def) {
+  // designVal = valor por defecto de diseño de esta celda (o undefined).
+  function _shProp(key, cellMap, fmtMap, designVal, def) {
     const ov = (typeof State !== 'undefined' && State[cellMap]) ? State[cellMap][key] : undefined;
     if (typeof ov === 'number') return ov;
+    if (typeof designVal === 'number') return designVal;
     const g = (typeof State !== 'undefined' && State[fmtMap]) ? State[fmtMap][State.activeFormatId] : undefined;
     return (typeof g === 'number') ? g : def;
   }
-  function _shadowOpacity(key) { return _shProp(key, 'cellShadowOpacity', 'shadowOpacity', SH_OP_DEF); }
-  function _shadowX(key)       { return _shProp(key, 'cellShadowX', 'shadowX', SH_X_DEF); }   // -0.5..0.5 (frac dim menor)
-  function _shadowY(key)       { return _shProp(key, 'cellShadowY', 'shadowY', SH_Y_DEF); }
-  function _shadowBlur(key)    { return _shProp(key, 'cellShadowBlur', 'shadowBlur', SH_BLUR_DEF); } // 0..1
+  function _shDef(key, prop) { const d = _cellShadowDef[key]; return d ? d[prop] : undefined; }
+  function _shadowOpacity(key) { return _shProp(key, 'cellShadowOpacity', 'shadowOpacity', _shDef(key, 'opacity'), SH_OP_DEF); }
+  function _shadowX(key)       { return _shProp(key, 'cellShadowX', 'shadowX', _shDef(key, 'x'), SH_X_DEF); }   // -0.5..0.5 (frac dim menor)
+  function _shadowY(key)       { return _shProp(key, 'cellShadowY', 'shadowY', _shDef(key, 'y'), SH_Y_DEF); }
+  function _shadowBlur(key)    { return _shProp(key, 'cellShadowBlur', 'shadowBlur', _shDef(key, 'blur'), SH_BLUR_DEF); } // 0..1
   // API pública para el control contextual (Fase 2).
   function getCellShadow(key)        { return _shadowOn(key); }
   function getCellShadowOpacity(key) { return _shadowOpacity(key); }
@@ -867,6 +917,67 @@ const Mosaic3D = (() => {
     });
   }
 
+  // ── MODO DE CAPA POR CELDA (blend con el fondo) ───────────
+  // Modo efectivo de una celda: override por celda o, si no, el default del
+  // formato. 'normal'/'pass-through' = sin shader (composición normal).
+  function _cellBlendModeId(key) {
+    const ov = (typeof State !== 'undefined' && State.cellBlendMode) ? State.cellBlendMode[key] : undefined;
+    if (ov) return ov;
+    const g = (typeof State !== 'undefined' && State.mosaicBlendMode) ? State.mosaicBlendMode[State.activeFormatId] : undefined;
+    return g || 'normal';
+  }
+  function _blendUsesShader(id) { return !!id && id !== 'normal' && id !== 'pass-through' && typeof BlendMode !== 'undefined'; }
+
+  function _getFbRes() {
+    if (!_fbRes) _fbRes = new THREE.Vector2(1, 1);
+    if (renderer) renderer.getDrawingBufferSize(_fbRes);
+    return _fbRes;
+  }
+  function _fondoColorNow() {
+    return (typeof Background !== 'undefined' && Background.get) ? Background.get(State.activeFormatId) : '#0e0e0e';
+  }
+  function _drawCoverCtx(ctx, img, w, h) {
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return;
+    const s = Math.max(w / iw, h / ih);
+    const dw = iw * s, dh = ih * s;
+    ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  }
+  // Carga (async) la imagen de fondo cuando cambia; al llegar, refresca y rebuild.
+  function _ensureFondoImage() {
+    const fmt = State.activeFormatId;
+    const hasImg = (typeof Background !== 'undefined' && Background.hasImage && Background.hasImage(fmt) &&
+                    (!Background.isVisible || Background.isVisible(fmt)));
+    const url = (hasImg && Background.getImageUrl) ? Background.getImageUrl(fmt) : null;
+    if (url === _fondoImgUrl) return;
+    _fondoImgUrl = url;
+    _fondoImg = null;
+    if (!url) return;
+    const im = new Image();
+    im.onload = () => { _fondoImg = im; _updateFondoTexture(); rebuild(); };
+    im.src = url;
+  }
+  // (Re)genera la textura del fondo (color + imagen cover) al tamaño del lienzo.
+  function _updateFondoTexture() {
+    const lienzo = document.getElementById('lienzo');
+    const w = Math.max(2, Math.round((lienzo && lienzo.clientWidth) || 512));
+    const h = Math.max(2, Math.round((lienzo && lienzo.clientHeight) || 512));
+    if (!_fondoCanvas) _fondoCanvas = document.createElement('canvas');
+    if (_fondoCanvas.width !== w)  _fondoCanvas.width  = w;
+    if (_fondoCanvas.height !== h) _fondoCanvas.height = h;
+    const cx = _fondoCanvas.getContext('2d');
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = _fondoColorNow();
+    cx.fillRect(0, 0, w, h);
+    if (_fondoImg) _drawCoverCtx(cx, _fondoImg, w, h);
+    if (!_fondoTex) {
+      _fondoTex = new THREE.CanvasTexture(_fondoCanvas);
+      if (THREE.SRGBColorSpace) _fondoTex.colorSpace = THREE.SRGBColorSpace;
+    }
+    _fondoTex.needsUpdate = true;
+    return _fondoTex;
+  }
+
   function _addMesh(slot, x, centerY, w, h) {
     const r = (params.radius / 1000) * CELL_H;
 
@@ -875,6 +986,8 @@ const Mosaic3D = (() => {
     _slotIndex++;
     _cellKeys.push(slotKey);       // registro para operaciones "a todas"
     _cellFrame[slotKey] = !!slot.frame;   // default de borde de diseño
+    _cellBorderDef[slotKey] = slot.borderDef || null;  // color/grosor de borde por diseño
+    _cellShadowDef[slotKey] = slot.shadowDef || null;  // sombra por diseño
 
     // Sombra de la celda (detrás de todo, desplazada X/Y en el plano).
     _addCellShadow(x, centerY, w, h, r, slotKey);
@@ -947,12 +1060,29 @@ const Mosaic3D = (() => {
     const ovOp = (typeof State !== 'undefined' && State.cellOpacity) ? State.cellOpacity[slotKey] : undefined;
     const cellOp = (typeof ovOp === 'number') ? ovOp : (slot.opacity ?? 1);
 
-    const mat = new THREE.MeshBasicMaterial({
-      map:         tex,
-      side:        THREE.FrontSide,
-      transparent: true,
-      opacity:     cellOp,
-    });
+    // Material: si la celda lleva modo de fusión (override o default del formato),
+    // se usa un ShaderMaterial que la mezcla con el fondo; si no, básico normal.
+    const modeId = _cellBlendModeId(slotKey);
+    let mat;
+    if (_blendUsesShader(modeId)) {
+      _ensureFondoImage();
+      const fondoTex = _updateFondoTexture();
+      mat = BlendMode.makeMaterial(THREE, {
+        map:        tex,
+        fondoTex:   fondoTex,
+        resolution: _getFbRes(),
+        opacity:    cellOp,
+        modeIndex:  BlendMode.modeIndex(modeId),
+        flipY:      true,
+      });
+    } else {
+      mat = new THREE.MeshBasicMaterial({
+        map:         tex,
+        side:        THREE.FrontSide,
+        transparent: true,
+        opacity:     cellOp,
+      });
+    }
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x + w / 2, centerY, 0);
     mesh.renderOrder = 1;
@@ -1515,6 +1645,7 @@ const Mosaic3D = (() => {
     if (typeof StacksBorder !== 'undefined' && StacksBorder.update) StacksBorder.update();
     if (typeof Shadow !== 'undefined' && Shadow.update) Shadow.update();
     if (typeof Glow !== 'undefined' && Glow.update) Glow.update();
+    if (typeof BlendMode !== 'undefined' && BlendMode.update) BlendMode.update();
     if (typeof Toolbar !== 'undefined' && Toolbar.update) Toolbar.update();
   }
   function toggleSelection(key) {

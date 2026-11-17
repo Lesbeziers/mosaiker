@@ -26,6 +26,8 @@ const Export = (() => {
   let _exFormatId   = '?';
   let _exFormatH    = 1;       // alto en px del formato (para marcos a 3px)
   let _exSelloBitmap = null;   // bitmap del sello (mosaicos 'stacks')
+  let _exFondoTex   = null;    // textura del fondo (para el modo de capa por celda)
+  let _exFondoRes   = null;    // THREE.Vector2 (W,H) del formato
 
   function init() {
     document.getElementById('btn-exportar')?.addEventListener('click', _showModal);
@@ -383,6 +385,29 @@ const Export = (() => {
     _exSlotIndex = 0;
     _exSkeletonId = esq ? esq.id : '?';
     _exFormatH = H;
+
+    // Fondo como textura para el MODO DE CAPA por celda: se prepara ANTES de
+    // construir la escena porque las celdas con modo lo muestrean. Se reutiliza
+    // el mismo canvas para componer el fondo 2D después. En PNG transparente no
+    // hay fondo → las celdas con modo caen a normal.
+    _exFondoTex = null;
+    _exFondoRes = new THREE.Vector2(W, H);
+    let fondoCanvas = null;
+    if (!transparent) {
+      fondoCanvas = document.createElement('canvas');
+      fondoCanvas.width = W; fondoCanvas.height = H;
+      const fx = fondoCanvas.getContext('2d');
+      fx.fillStyle = (typeof Background !== 'undefined') ? Background.get(format.id) : '#0e0e0e';
+      fx.fillRect(0, 0, W, H);
+      const bgImgOn = (typeof Background === 'undefined') || Background.isVisible(format.id);
+      if (bgImgOn && typeof Background !== 'undefined' && Background.hasImage && Background.hasImage(format.id)) {
+        const bgUrl = Background.getImageUrl(format.id);
+        if (bgUrl) { const bgImg = await _loadImage(bgUrl); if (bgImg) _drawCover(fx, bgImg, W, H); }
+      }
+      _exFondoTex = new THREE.CanvasTexture(fondoCanvas);
+      if (THREE.SRGBColorSpace) _exFondoTex.colorSpace = THREE.SRGBColorSpace;
+    }
+
     if (esq) {
       if (esq.type === 'grid')    _buildGrid   (THREE, pivot, esq, p, getTexture);
       if (esq.type === 'columns') _buildColumns(THREE, pivot, esq, p, getTexture);
@@ -403,20 +428,11 @@ const Export = (() => {
     out.height = H;
     const ctx  = out.getContext('2d');
 
-    // Fondo. En modo transparente (PNG) se omite por completo. El COLOR siempre
-    // se aplica; la IMAGEN de fondo se omite si su capa FONDO está oculta (👁).
-    if (!transparent) {
-      ctx.fillStyle = (typeof Background !== 'undefined') ? Background.get(format.id) : '#0e0e0e';
-      ctx.fillRect(0, 0, W, H);
-
-      const bgImgOn = (typeof Background === 'undefined') || Background.isVisible(format.id);
-      if (bgImgOn && typeof Background !== 'undefined' && Background.hasImage && Background.hasImage(format.id)) {
-        const bgUrl = Background.getImageUrl(format.id);
-        if (bgUrl) {
-          const bgImg = await _loadImage(bgUrl);
-          if (bgImg) _drawCover(ctx, bgImg, W, H);
-        }
-      }
+    // Fondo. En modo transparente (PNG) se omite. Si no, se pinta el canvas de
+    // fondo ya construido arriba (color + imagen cover) — misma fuente que la
+    // textura que muestrean las celdas con modo de capa.
+    if (!transparent && fondoCanvas) {
+      ctx.drawImage(fondoCanvas, 0, 0);
     }
 
     // Composita el mosaico respetando su opacidad y desenfoque por formato.
@@ -627,19 +643,29 @@ const Export = (() => {
   }
 
   function _buildFree(THREE, pivot, esq, p, getTexture) {
-    const gap  = (p.gap ?? 8) * 0.01;
+    // Inset uniforme por celda (espejo de mosaic-3d._buildFree). bakedGap: las
+    // coordenadas ya traen la separación del diseño; el slider aplica solo la
+    // DIFERENCIA respecto al valor por defecto (8) → separaciones uniformes.
+    const baked = !!esq.bakedGap;
+    const GAP_DEF = 0.08;
+    let gap = (p.gap ?? 8) * 0.01;
+    if (baked) gap = Math.max(-0.06, gap - GAP_DEF);
     const unit = CELL_H;
     let maxX = 0, maxY = 0;
     esq.cells.forEach(c => { maxX = Math.max(maxX, c.x + c.w); maxY = Math.max(maxY, c.y + c.h); });
     const totalW = maxX * unit, totalH = maxY * unit;
     const offX = -totalW / 2, topY = totalH / 2;
     esq.cells.forEach(c => {
-      const w = c.w * unit - gap;
-      const h = c.h * unit - gap;
-      const left = offX + c.x * unit + gap / 2;
-      const top  = topY - c.y * unit - gap / 2;
+      const w = Math.max(0.05 * unit, c.w * unit - gap * unit);
+      const h = Math.max(0.05 * unit, c.h * unit - gap * unit);
+      const left = offX + c.x * unit + gap * unit / 2;
+      const top  = topY - c.y * unit - gap * unit / 2;
       _addMesh(THREE, pivot,
-        { n: c.n, ratio: c.r, opacity: 1 },
+        { n: c.n, ratio: c.r,
+          opacity:   (typeof c.opacity === 'number') ? c.opacity : 1,
+          frame:     !!c.border,                                     // marco ON por diseño
+          borderDef: c.border ? (esq.borderDefault || null) : null,  // color/grosor por diseño
+          shadowDef: c.shadow ? Object.assign({ on: true }, esq.shadowDefault || {}) : null },
         left, top - h / 2, w, h, p, getTexture);
     });
   }
@@ -653,14 +679,23 @@ const Export = (() => {
     const bandAfter = esq.band ? esq.band.after : -1;
     const bandW     = (esq.band && esq.band.width) || VERT_W;
 
+    // Offset por columna (espejo de mosaic-3d._buildStacks).
+    const numCols = esq.cols.length;
+    const stateOffsets = p?.colOffsets;
+    const offsets = (Array.isArray(stateOffsets) && stateOffsets.length === numCols)
+      ? stateOffsets
+      : (esq.defaultOffsets || new Array(numCols).fill(0));
+
+    // Centrado y banda con el layout BASE; el offset del usuario se suma al
+    // colocar cada columna (igual que mosaic-3d._buildStacks).
     const cells = [];
     let cursor = 0, maxX = 0, topMost = -Infinity, bottomMost = Infinity, laneX = null;
     esq.cols.forEach((col, ci) => {
       const drop = col.drop || 0;
-      let top = -drop * step;
+      let top = -drop * step;   // BASE (sin offset de usuario)
       col.cells.forEach(c => {
         const cy = top - CELL_H / 2;
-        cells.push({ x: cursor, cy, n: c.n, opacity: c.opacity ?? 1 });
+        cells.push({ x: cursor, cy, n: c.n, opacity: c.opacity ?? 1, ci });
         if (cursor + VERT_W > maxX) maxX = cursor + VERT_W;
         if (top > topMost) topMost = top;
         if (cy - CELL_H / 2 < bottomMost) bottomMost = cy - CELL_H / 2;
@@ -676,7 +711,7 @@ const Export = (() => {
     cells.forEach(c => {
       _addMesh(THREE, pivot,
         { n: c.n, ratio: 'V', opacity: c.opacity, frame: c.opacity >= 0.99 },
-        c.x + offsetX, c.cy + offsetY, VERT_W, CELL_H, p, getTexture);
+        c.x + offsetX, c.cy + offsetY + (offsets[c.ci] || 0), VERT_W, CELL_H, p, getTexture);
     });
 
     if (esq.band && laneX !== null) {
@@ -748,9 +783,12 @@ const Export = (() => {
   }
 
   // ── SOMBRA POR CELDA (export) — espejo de mosaic-3d._addCellShadow ──
-  function _exShVal(cellMap, fmtMap, key, def) {
+  // designVal = default de diseño de la celda (o undefined). Orden efectivo:
+  // override por celda > diseño > default de formato > constante.
+  function _exShVal(cellMap, fmtMap, key, designVal, def) {
     const ov = (_exComp && _exComp[cellMap]) ? _exComp[cellMap][key] : undefined;
     if (typeof ov === 'number') return ov;
+    if (typeof designVal === 'number') return designVal;
     const g = (typeof State !== 'undefined' && State[fmtMap]) ? State[fmtMap][_exFormatId] : undefined;
     return (typeof g === 'number') ? g : def;
   }
@@ -784,14 +822,16 @@ const Export = (() => {
     t.needsUpdate = true;
     return { tex: t, meshW: cw / K, meshH: ch / K };
   }
-  function _exAddShadow(THREE, pivot, x, centerY, w, h, r, key) {
-    const on = (_exComp && _exComp.cellShadow && typeof _exComp.cellShadow[key] === 'boolean') ? _exComp.cellShadow[key] : false;
+  function _exAddShadow(THREE, pivot, x, centerY, w, h, r, key, designDef) {
+    const d = designDef || null;
+    const ov = (_exComp && _exComp.cellShadow && typeof _exComp.cellShadow[key] === 'boolean') ? _exComp.cellShadow[key] : undefined;
+    const on = (typeof ov === 'boolean') ? ov : !!(d && d.on);   // override > diseño > off
     if (!on) return;
-    const op = _exShVal('cellShadowOpacity', 'shadowOpacity', key, 0.45);
+    const op = _exShVal('cellShadowOpacity', 'shadowOpacity', key, d ? d.opacity : undefined, 0.45);
     if (op <= 0) return;
-    const nx = _exShVal('cellShadowX', 'shadowX', key, 0);
-    const ny = _exShVal('cellShadowY', 'shadowY', key, 0);
-    const bl = _exShVal('cellShadowBlur', 'shadowBlur', key, 0.35);
+    const nx = _exShVal('cellShadowX', 'shadowX', key, d ? d.x : undefined, 0);
+    const ny = _exShVal('cellShadowY', 'shadowY', key, d ? d.y : undefined, 0);
+    const bl = _exShVal('cellShadowBlur', 'shadowBlur', key, d ? d.blur : undefined, 0.35);
     const minD = Math.min(w, h);
     const { tex, meshW, meshH } = _exShadowTexture(THREE, w, h, r, bl);
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: op, depthWrite: false });
@@ -831,9 +871,9 @@ const Export = (() => {
   function _exAddGlow(THREE, pivot, x, centerY, w, h, r, key) {
     const on = (_exComp && _exComp.cellGlow && typeof _exComp.cellGlow[key] === 'boolean') ? _exComp.cellGlow[key] : false;
     if (!on) return;
-    const inten = _exShVal('cellGlowIntensity', 'glowIntensity', key, 0.85);
+    const inten = _exShVal('cellGlowIntensity', 'glowIntensity', key, undefined, 0.85);
     if (inten <= 0) return;
-    const bl = _exShVal('cellGlowBlur', 'glowBlur', key, 0.4);
+    const bl = _exShVal('cellGlowBlur', 'glowBlur', key, undefined, 0.4);
     const { tex, meshW, meshH } = _exGlowTexture(THREE, w, h, r, _exGlowColor(key), bl);
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: inten, depthWrite: false, blending: THREE.AdditiveBlending });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(meshW, meshH), mat);
@@ -846,9 +886,7 @@ const Export = (() => {
     _exSlotIndex++;
     const r   = ((p.radius ?? 12) / 1000) * CELL_H;
     // Sombra por celda (detrás). Debe coincidir con mosaic-3d._addCellShadow.
-    _exAddShadow(THREE, pivot, x, centerY, w, h, r, key);
-    // Glow por celda (encima, aditivo). Espejo de mosaic-3d._addCellGlow.
-    _exAddGlow(THREE, pivot, x, centerY, w, h, r, key);
+    _exAddShadow(THREE, pivot, x, centerY, w, h, r, key, slot.shadowDef);
     // Glow por celda (encima, aditivo). Espejo de mosaic-3d._addCellGlow.
     _exAddGlow(THREE, pivot, x, centerY, w, h, r, key);
     // Imagen efectiva: vinculada al ÍNDICE de imagen (formatId::n) o índice del
@@ -871,12 +909,14 @@ const Export = (() => {
     const ovOn = (_exComp && _exComp.cellBorder) ? _exComp.cellBorder[key] : undefined;
     const borderOn = (ovOn === true || ovOn === false) ? ovOn : (legacyOff ? false : !!slot.frame);
     if (borderOn) {
+      const bd  = slot.borderDef || null;   // default de diseño (p.ej. DESTACADOS: blanco 1px)
       const ovW = (_exComp && _exComp.cellBorderWidth) ? _exComp.cellBorderWidth[key] : undefined;
       const bw = (typeof ovW === 'number' && ovW >= 0) ? ovW
+        : (bd && typeof bd.width === 'number' && bd.width >= 0) ? bd.width
         : ((typeof State !== 'undefined' && State.stacksBorderWidth && typeof State.stacksBorderWidth[_exFormatId] === 'number')
             ? State.stacksBorderWidth[_exFormatId] : 3);
       const ovC = (_exComp && _exComp.cellBorderColor) ? _exComp.cellBorderColor[key] : undefined;
-      const bc = ovC || ((typeof State !== 'undefined' && State.stacksBorderColor && State.stacksBorderColor[_exFormatId]) || '#ffffff');
+      const bc = ovC || (bd && bd.color) || ((typeof State !== 'undefined' && State.stacksBorderColor && State.stacksBorderColor[_exFormatId]) || '#ffffff');
       const b    = _exBorderWorld(bw, p);
       const wGeo = _makeRoundedFrame(THREE, w + 2 * b, h + 2 * b, w, h, r + b, r);
       const wMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(bc), side: THREE.FrontSide, transparent: true, opacity: 1 });
@@ -888,12 +928,29 @@ const Export = (() => {
     // Opacidad efectiva: override por celda (State.cellOpacity vía comp) o diseño.
     const ovOp   = (_exComp && _exComp.cellOpacity) ? _exComp.cellOpacity[key] : undefined;
     const cellOp = (typeof ovOp === 'number') ? ovOp : (slot.opacity ?? 1);
-    const mat = new THREE.MeshBasicMaterial({
-      map:         tex,
-      side:        THREE.FrontSide,
-      transparent: true,
-      opacity:     cellOp,
-    });
+    // Modo de fusión efectivo (override por celda o default del formato). Si lleva
+    // modo y hay fondo, se usa el mismo shader que el editor (mezcla con el fondo).
+    const bmOv   = (_exComp && _exComp.cellBlendMode) ? _exComp.cellBlendMode[key] : undefined;
+    const bmDef  = (typeof State !== 'undefined' && State.mosaicBlendMode) ? State.mosaicBlendMode[_exFormatId] : undefined;
+    const modeId = bmOv || bmDef || 'normal';
+    let mat;
+    if (_exFondoTex && typeof BlendMode !== 'undefined' && modeId !== 'normal' && modeId !== 'pass-through') {
+      mat = BlendMode.makeMaterial(THREE, {
+        map:        tex,
+        fondoTex:   _exFondoTex,
+        resolution: _exFondoRes,
+        opacity:    cellOp,
+        modeIndex:  BlendMode.modeIndex(modeId),
+        flipY:      true,
+      });
+    } else {
+      mat = new THREE.MeshBasicMaterial({
+        map:         tex,
+        side:        THREE.FrontSide,
+        transparent: true,
+        opacity:     cellOp,
+      });
+    }
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x + w / 2, centerY, 0);
     mesh.userData.slot = { key, w, h };   // para el reparto de grupos
@@ -1092,7 +1149,17 @@ const Export = (() => {
       const img = new Image();
       img.onload = async () => {
         try {
-          const bitmap = await createImageBitmap(img, { imageOrientation: 'flipY' });
+          // El <img> ya aplica la orientación EXIF al renderizar. Lo volcamos a un
+          // canvas para capturar esos píxeles YA orientados, y de ahí sacamos el
+          // ImageBitmap con flipY (fiable desde canvas, sin la ambigüedad de EXIF
+          // que tiene createImageBitmap(<img>,…) a resolución completa). Esto evita
+          // que algunas imágenes (las que traen EXIF) se exporten volteadas.
+          const w = img.naturalWidth || img.width;
+          const h = img.naturalHeight || img.height;
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          const bitmap = await createImageBitmap(c, { imageOrientation: 'flipY' });
           URL.revokeObjectURL(url);
           resolve(bitmap);
         } catch (err) {
