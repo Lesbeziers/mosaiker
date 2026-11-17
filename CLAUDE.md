@@ -6,18 +6,19 @@
 
 ---
 
-## ⚠️ LO PRIMERO (al migrar de cuenta / máquina)
+## ⚠️ LO PRIMERO
 
-- **Rama activa: `destacados-x3`. Está 15 commits por delante de `main` y NO está
-  subida a remoto** (`git ls-remote origin destacados-x3` → vacío). Si solo clonas
-  desde GitHub, **pierdes todo el trabajo de DESTACADOS x3 y MODO CAPA**. Antes de
-  cerrar la cuenta vieja: `git push -u origin destacados-x3` (o fusionar a `main` y
-  empujar). El repo vive en un **volumen externo** (`/Volumes/MOVISTAR+`), no en el
-  disco local.
+- **Trabaja sobre `main`. TODO está fusionado y subido ahí** (DESTACADOS x3 y MODO CAPA
+  se integraron en `main` el 2026-11-17; ver §6). La rama `destacados-x3` ya está
+  completamente contenida en `main` — es histórica, puedes ignorarla o borrarla.
 - **Remoto:** `https://github.com/Lesbeziers/mosaiker.git` (usuario `Lesbeziers`,
-  push HTTPS con credenciales en el keychain). La rama estable es `origin/main`.
+  push HTTPS con credenciales en el keychain). La rama estable y actual es `origin/main`.
+  Al clonar en una máquina nueva, `git clone` + trabajar en `main` ya trae todo.
+- El repo vive en un **volumen externo** (`/Volumes/MOVISTAR+`), no en el disco local.
 - Hay un `._*` y `.DS_Store` por todas partes porque el repo está en un disco externo
   no-HFS+; ya están en `.gitignore`, ignóralos.
+- Para el traslado de cuenta/máquina hay un **`MIGRACION.md`** en la raíz con la
+  auditoría completa y el checklist.
 
 ---
 
@@ -141,9 +142,9 @@ están implementados en `mosaic-3d.js` (`_buildX`) **y replicados en `export.js`
 
 **Cache-busting:** `index.html` cuelga `?v=YYYYMMDD` de cada CSS/JS. **Súbelo
 (buscar/reemplazar `?v=`) en cada release que toque assets**, o el equipo se queda con
-JS viejo cacheado (síntomas fantasma: "no exporta / no guarda"). ⚠️ **Actualmente está
-en `?v=20260717u` pero hay archivos editados hasta el 15-sep — el sufijo se quedó sin
-bumpear.** Al siguiente despliegue, súbelo.
+JS viejo cacheado (síntomas fantasma: "no exporta / no guarda"). Actualmente en
+`?v=20261117` (bumpeado al integrar DESTACADOS x3 + MODO CAPA en `main`). La 1ª carga
+tras un bump aún puede necesitar hard-refresh (el `index.html` cacheado es el viejo).
 
 ---
 
@@ -246,17 +247,16 @@ bumpear.** Al siguiente despliegue, súbelo.
 ## 6. Estado actual y pendientes
 
 ### Dónde está el trabajo
-- Rama **`destacados-x3`** (activa, 15 commits por delante de `main`, **sin subir a
-  remoto** — ver el aviso del principio). Último commit: `e9b6c43` *"MODO CAPA: estado
-  'Mixto' para poder resetear todas a Normal"* (15-sep-2026).
-- `main` / `origin/main` tiene todo lo anterior (producción estable): catálogo de 8
-  mosaicos, cover, encuadre por contenedor, grupos/contenedor virtual, fondo por formato,
-  panel CAPAS, efectos por celda (sombra/glow/opacidad/desenfoque/borde), export
-  JPG/PNG/ambos + CUSTOM, guardar/abrir. Verificado con datos reales por el equipo.
-- Otras ramas locales (`apariencia-inspector`, `zigzag-offset`,
-  `claude/trusting-goldwasser-ae26d5`) ya están fusionadas o son históricas.
+- **Todo en `main` / `origin/main`** (rama estable y actual). El 2026-11-17 se fusionó
+  `destacados-x3` → `main` (merge `fdcd18b`), integrando DESTACADOS x3 y MODO CAPA.
+- `main` contiene: catálogo de 8 mosaicos, cover, encuadre por contenedor,
+  grupos/contenedor virtual, fondo por formato, panel CAPAS, efectos por celda
+  (sombra/glow/opacidad/desenfoque/borde), **DESTACADOS x3**, **MODO CAPA**, export
+  JPG/PNG/ambos + CUSTOM, guardar/abrir.
+- Ramas históricas ya contenidas en `main` (prescindibles): `destacados-x3`,
+  `apariencia-inspector`, `zigzag-offset`, `claude/trusting-goldwasser-ae26d5`.
 
-### Trabajo reciente no fusionado a main (en `destacados-x3`)
+### Trabajo reciente integrado en main (fusión 2026-11-17)
 1. **DESTACADOS x3** (commits `4e63338`..`1cf07ff`): rework del mosaico **COLUMNAS MIXTAS
    DESTACADOS** (`id: frontal`) calcando 1:1 las coordenadas de Illustrator del cliente,
    proporciones 9:16/16:9 exactas, gap uniforme ajustable, y se añadió el contenedor 16
@@ -265,15 +265,14 @@ bumpear.** Al siguiente despliegue, súbelo.
    Fase 2 por celda vía shader, Normal vs Pass Through, estado Mixto). Ver §4.
 
 ### Pendientes / a validar
-- **Subir `destacados-x3` a remoto y/o fusionar a `main`** antes de cerrar la cuenta.
-- **Bumpear el `?v=` de `index.html`** en el próximo despliegue (hay archivos del 15-sep
-  bajo el sufijo viejo `20260717u`).
-- Validar con el equipo, con datos reales: guardar/reabrir un proyecto que use **formatos
-  heredados** (lo más delicado del modelo de composición por formato) y los nuevos blend
-  modes por celda (que el export horneado coincida con el editor).
+- **Validar en producción, con datos reales** (DESTACADOS x3 y MODO CAPA ya están en
+  `main` pero aún no se han estrenado con trabajo real): guardar/reabrir un proyecto que
+  use **formatos heredados** (lo más delicado del modelo de composición por formato) y
+  los nuevos **blend modes por celda** (que el export horneado coincida con el editor).
 - Confirmar con el usuario que **FOTOGRAMAS (IRREGULAR)** queda con sus dominós sin forzar
   ratio puro.
 - Menor/opcional: afinar sensibilidad del zoom con botón derecho / modificador.
+- Housekeeping opcional: borrar las ramas históricas ya fusionadas (local y remoto).
 
 ### Prioridad declarada
 **Solidez y fiabilidad a volumen**, no añadir mosaicos (el catálogo de 8 se considera

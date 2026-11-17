@@ -106,10 +106,11 @@ está en GitHub** (`https://github.com/Lesbeziers/mosaiker.git`). Detalle:
 
 ## 🔭 Pendientes tras la migración (recordatorio; ver `CLAUDE.md` §6)
 
-- **Fusionar `destacados-x3` → `main`** cuando el equipo valide DESTACADOS x3 y MODO CAPA
-  con datos reales. Ahora mismo `main` solo lleva por delante los dos docs; el trabajo
-  (16 commits) sigue viviendo en `destacados-x3`.
-- **Bumpear el `?v=` de `index.html`** en el próximo despliegue que toque assets (sigue en
-  `?v=20260717u` con archivos editados hasta el 15-sep).
-- Validar guardar/reabrir con **formatos heredados** y los **blend modes por celda**
-  (paridad editor↔export).
+- [x] **Fusionado `destacados-x3` → `main`** (merge `fdcd18b`, 2026-11-17). Todo el
+      trabajo está en la rama estable.
+- [x] **`?v=` de `index.html` bumpeado** a `20261117`.
+- [ ] **Validar en producción con datos reales**: guardar/reabrir con **formatos
+      heredados** y los **blend modes por celda** (paridad editor↔export). Están en `main`
+      pero aún sin estrenar en trabajo real.
+- [ ] Housekeeping opcional: borrar ramas históricas ya fusionadas
+      (`destacados-x3`, `zigzag-offset`, `apariencia-inspector`, `claude/trusting-*`).
