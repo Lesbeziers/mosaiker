@@ -963,8 +963,14 @@ const Mosaic3D = (() => {
     const w = Math.max(2, Math.round((lienzo && lienzo.clientWidth) || 512));
     const h = Math.max(2, Math.round((lienzo && lienzo.clientHeight) || 512));
     if (!_fondoCanvas) _fondoCanvas = document.createElement('canvas');
+    const resized = _fondoCanvas.width !== w || _fondoCanvas.height !== h;
     if (_fondoCanvas.width !== w)  _fondoCanvas.width  = w;
     if (_fondoCanvas.height !== h) _fondoCanvas.height = h;
+    // WebGL reserva la textura con el tamaño de su 1ª subida (inmutable): si el
+    // lienzo cambia de tamaño (cambio de formato o de ventana), hay que liberarla
+    // para que Three.js la vuelva a reservar; si no, las celdas con modo de capa
+    // muestrean un fondo viejo/recortado ("Offset overflows texture dimensions").
+    if (resized && _fondoTex) _fondoTex.dispose();
     const cx = _fondoCanvas.getContext('2d');
     cx.clearRect(0, 0, w, h);
     cx.fillStyle = _fondoColorNow();

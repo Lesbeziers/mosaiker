@@ -143,7 +143,8 @@ están implementados en `mosaic-3d.js` (`_buildX`) **y replicados en `export.js`
 **Cache-busting:** `index.html` cuelga `?v=YYYYMMDD` de cada CSS/JS. **Súbelo
 (buscar/reemplazar `?v=`) en cada release que toque assets**, o el equipo se queda con
 JS viejo cacheado (síntomas fantasma: "no exporta / no guarda"). Actualmente en
-`?v=20261117` (bumpeado al integrar DESTACADOS x3 + MODO CAPA en `main`). La 1ª carga
+`?v=20261117b` (fix del fondo de MODO CAPA en el editor; si se bumpea dos veces el
+mismo día, añadir sufijo b, c…). La 1ª carga
 tras un bump aún puede necesitar hard-refresh (el `index.html` cacheado es el viejo).
 
 ---
@@ -266,9 +267,13 @@ tras un bump aún puede necesitar hard-refresh (el `index.html` cacheado es el v
 
 ### Pendientes / a validar
 - **Validar en producción, con datos reales** (DESTACADOS x3 y MODO CAPA ya están en
-  `main` pero aún no se han estrenado con trabajo real): guardar/reabrir un proyecto que
-  use **formatos heredados** (lo más delicado del modelo de composición por formato) y
-  los nuevos **blend modes por celda** (que el export horneado coincida con el editor).
+  `main` pero aún no se han estrenado con trabajo real). El 2026-11-17 se validó con un
+  proyecto SINTÉTICO (3 formatos heredados, blend por celda y de mosaico, grupo,
+  sustitución): guardar ZIP → reabrir carpeta deja el estado idéntico y el export
+  coincide con el editor. Se encontró y corrigió un bug del EDITOR (no del export): la
+  textura de fondo del shader de MODO CAPA no se re-reservaba al cambiar el tamaño del
+  lienzo (cambio de formato/ventana) → preview con fondo viejo. Falta repetirlo con un
+  proyecto real, sobre todo con **imagen de fondo** (solo se probó color liso).
 - Confirmar con el usuario que **FOTOGRAMAS (IRREGULAR)** queda con sus dominós sin forzar
   ratio puro.
 - Menor/opcional: afinar sensibilidad del zoom con botón derecho / modificador.
